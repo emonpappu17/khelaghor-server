@@ -1,11 +1,8 @@
-import express from "express";
-import cors from "cors";
+import app from "./app.js";
+import { env } from "./app/config/env.js";
 
-const app = express();
+const PORT = env.PORT;
 
-app.use(cors());
-app.use(express.json());
-
-app.listen(5000, () => {
-  console.log("Server running...");
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
