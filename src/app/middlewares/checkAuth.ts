@@ -4,17 +4,9 @@ import { AppError } from "../errors/AppError";
 import { prisma } from "../lib/prisma";
 import type { UserRole } from "../../generated/prisma/enums";
 
-export interface AuthRequest extends Request {
-    user?: {
-        userId: string;
-        email: string
-        role: string;
-    };
-}
-
 export const checkAuth =
     (...allowedRoles: UserRole[]) =>
-        async (req: AuthRequest, res: Response, next: NextFunction) => {
+        async (req: Request, res: Response, next: NextFunction) => {
             try {
                 // const authorization = req.headers.authorization;
 
@@ -62,7 +54,7 @@ export const checkAuth =
                     userId: user.id,
                     email: user.email,
                     role: user.role,
-                };
+                }
 
                 next();
             } catch (error) {
