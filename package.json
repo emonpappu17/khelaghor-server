@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:all": "npm run prisma:migrate && npm run prisma:generate",
     "prisma:reset": "prisma migrate reset",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio"

@@ -17,5 +17,8 @@ export const env = {
 
     BCRYPT_SALT_ROUNDS: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
 
+    SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL as string,
+    SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD as string,
+
     CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
 };
