@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
 import { handleZodError } from "../errors/handleZodError";
 import { handlePrismaError } from "../errors/handlePrismaError";
+import { handleJwtError } from "../errors/handleJwtError";
 
 export const errorHandler: ErrorRequestHandler = (
     err,
@@ -14,7 +15,7 @@ export const errorHandler: ErrorRequestHandler = (
     let message = "Internal Server Error";
     let errors;
 
-    // Prisma Error
+    // Prisma
     const prismaError = handlePrismaError(err);
     if (prismaError) {
         statusCode = prismaError.statusCode;
@@ -22,18 +23,27 @@ export const errorHandler: ErrorRequestHandler = (
         errors = prismaError.errors;
     }
 
-    // Zod Error
-    else if (err instanceof ZodError) {
-        const formatted = handleZodError(err);
-        statusCode = formatted.statusCode;
-        message = formatted.message;
-        errors = formatted.errors;
-    }
+    // JWT
+    else {
+        const jwtError = handleJwtError(err);
+        if (jwtError) {
+            statusCode = jwtError.statusCode;
+            message = jwtError.message;
+        }
 
-    // AppError
-    else if (err instanceof AppError) {
-        statusCode = err.statusCode;
-        message = err.message;
+        // Zod
+        else if (err instanceof ZodError) {
+            const formatted = handleZodError(err);
+            statusCode = formatted.statusCode;
+            message = formatted.message;
+            errors = formatted.errors;
+        }
+
+        // AppError
+        else if (err instanceof AppError) {
+            statusCode = err.statusCode;
+            message = err.message;
+        }
     }
 
     console.error("🔥 Error:", err);
