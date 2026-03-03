@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import sendResponse from "../utils/sendResponse";
+import { AppError } from "../errors/AppError";
 
 export const errorHandler: ErrorRequestHandler = (
     err,
@@ -7,7 +8,13 @@ export const errorHandler: ErrorRequestHandler = (
     res,
     next
 ) => {
-    const statusCode = (err as any)?.statusCode || 500;
+    let statusCode = 500;
+    let message = "Internal Server Error";
+
+    if (err instanceof AppError) {
+        statusCode = err.statusCode;
+        message = err.message;
+    }
 
     console.error("🔥 Error:", err);
 
