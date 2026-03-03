@@ -2,6 +2,7 @@ import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
 import { handleZodError } from "../errors/handleZodError";
+import { handlePrismaError } from "../errors/handlePrismaError";
 
 export const errorHandler: ErrorRequestHandler = (
     err,
@@ -11,23 +12,30 @@ export const errorHandler: ErrorRequestHandler = (
 ) => {
     let statusCode = 500;
     let message = "Internal Server Error";
-    let errors: unknown = undefined;
+    let errors;
 
-    // ✅ Handle Custom AppError
-    if (err instanceof AppError) {
-        statusCode = err.statusCode;
-        message = err.message;
+    // Prisma Error
+    const prismaError = handlePrismaError(err);
+    if (prismaError) {
+        statusCode = prismaError.statusCode;
+        message = prismaError.message;
+        errors = prismaError.errors;
     }
 
-    // ✅ Handle Zod Validation Error
-    if (err instanceof ZodError) {
+    // Zod Error
+    else if (err instanceof ZodError) {
         const formatted = handleZodError(err);
         statusCode = formatted.statusCode;
         message = formatted.message;
         errors = formatted.errors;
     }
 
-    // Log everything
+    // AppError
+    else if (err instanceof AppError) {
+        statusCode = err.statusCode;
+        message = err.message;
+    }
+
     console.error("🔥 Error:", err);
 
     const response: Record<string, unknown> = {
@@ -36,9 +44,8 @@ export const errorHandler: ErrorRequestHandler = (
     };
 
     if (errors) response.errors = errors;
-
     if (process.env.NODE_ENV === "development") {
-        response.stack = err.stack;
+        response.stack = err instanceof Error ? err.stack : undefined;
     }
 
     res.status(statusCode).json(response);
