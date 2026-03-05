@@ -58,5 +58,7 @@ export const errorHandler: ErrorRequestHandler = (
         response.stack = err instanceof Error ? err.stack : undefined;
     }
 
+    console.log('error res==>', response);
+
     res.status(statusCode).json(response);
 };

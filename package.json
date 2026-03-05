@@ -4,15 +4,16 @@
   "description": "",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsup src/server.ts --watch --clean --format esm",
+    "dev": "tsup src/server.ts --watch --clean --format esm --onSuccess \"node dist/server.js\"",
     "build": "tsup src/server.ts --format esm --clean --minify",
     "start": "node dist/server.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:all": "npm run prisma:migrate && npm run prisma:generate",
-    "prisma:reset": "prisma migrate reset",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:all": "npm run db:migrate && npm run db:generate",
+    "db:reset": "prisma migrate reset",
+    "db:deploy": "prisma migrate deploy",
+    "db:push": "npx prisma db push",
+    "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "render-build": "npm install --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build"
   },
@@ -20,7 +21,6 @@
   "author": "Emon howlader",
   "license": "ISC",
   "type": "module",
-
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
