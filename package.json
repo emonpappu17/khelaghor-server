@@ -7,19 +7,22 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:all": "npm run prisma:migrate && npm run prisma:generate",
     "prisma:reset": "prisma migrate reset",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "render-build": "npm install && npm run build && npx prisma generate"
+    "postinstall": "prisma generate",
+    "render-build": "npm install && npx prisma generate && npx prisma migrate deploy && npm run build"
   },
   "keywords": [],
   "author": "Emon howlader",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
