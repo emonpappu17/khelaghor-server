@@ -4,16 +4,17 @@
   "description": "",
   "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:all": "npm run prisma:migrate && npm run prisma:generate",
     "prisma:reset": "prisma migrate reset",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "render-build": "npm install && npm run build && npx prisma generate"
   },
   "keywords": [],
   "author": "Emon howlader",
