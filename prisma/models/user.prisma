@@ -10,8 +10,8 @@ model User {
   isVerified Boolean    @default(false)
   isDeleted  Boolean    @default(false)
 
-  auths Auth[]
-  posts Post[]
+  hostProfile Host?
+  auths       Auth[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -24,6 +24,17 @@ model Auth {
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
+}
+
+model Host {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String?
+  nidNumber    String?
+  isApproved   Boolean   @default(false)
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
 }
 
 enum AuthProvider {
