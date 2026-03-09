@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { AuthService } from './auth.service';
-import { RegisterInput } from './auth.validation';
+import { LoginInput, RegisterInput } from './auth.validation';
+import { setAuthCookie } from '../../utils/setCookie';
 
 const register = catchAsync(async (req: Request, res: Response) => {
     const result = await AuthService.register(req.body as RegisterInput);
@@ -15,5 +16,21 @@ const register = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const login = catchAsync(async (req: Request, res: Response) => {
+    const result = await AuthService.login(req.body as LoginInput);
 
-export const AuthController = { register };
+    setAuthCookie(res, { accessToken: result.accessToken, refreshToken: result.refreshToken })
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: 'Login successful',
+        data: {
+            accessToken: result.accessToken,
+            user: result.user,
+        },
+    });
+});
+
+
+export const AuthController = { register, login };

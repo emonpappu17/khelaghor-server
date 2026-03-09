@@ -2,7 +2,8 @@ import { AuthProvider, UserRole } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import bcrypt from 'bcrypt';
-import { RegisterInput } from "./auth.validation";
+import { LoginInput, RegisterInput } from "./auth.validation";
+import { generateAccessToken, generateRefreshToken, TJwtPayload } from "../../utils/jwt";
 
 const register = async (data: RegisterInput) => {
     const existingUser = await prisma.user.findUnique({
@@ -57,4 +58,117 @@ const register = async (data: RegisterInput) => {
     return result;
 };
 
-export const AuthService = { register };
+// const login = async (data: LoginInput) => {
+//     const user = await prisma.user.findUnique({
+//         where: { email: data.email, isDeleted: false },
+//     });
+
+//     if (!user || !user.password) {
+//         throw new AppError('Invalid email or password', 401
+//         );
+//     }
+
+//     // Compare password
+//     const isPasswordValid = await bcrypt.compare(data.password, user.password);
+
+//     if (!isPasswordValid) {
+//         throw new AppError('Invalid email or password', 401);
+//     }
+
+//     // Generate tokens
+//     const tokenPayload = { userId: user.id, email: user.email, role: user.role } as TJwtPayload;
+
+//     const accessToken = generateAccessToken(tokenPayload);
+//     const refreshToken = generateRefreshToken(tokenPayload);
+
+//     return {
+//         accessToken,
+//         refreshToken,
+//         user: {
+//             id: user.id,
+//             name: user.name,
+//             email: user.email,
+//             role: user.role,
+//             avatar: user.avatar,
+//         },
+//     };
+// };
+
+
+const login = async (data: LoginInput) => {
+    const user = await prisma.user.findUnique({
+        where: { email: data.email },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            password: true,
+            role: true,
+            avatar: true,
+            status: true,
+            isDeleted: true,
+        },
+    });
+
+    if (!user) {
+        throw new AppError("Invalid email or password", 401);
+    }
+
+    if (user.isDeleted) {
+        throw new AppError("This account has been deleted", 403);
+    }
+
+    if (user.status !== "ACTIVE") {
+        throw new AppError("Your account is not active", 403);
+    }
+
+    // Check auth provider (credentials login allowed)
+    const authProvider = await prisma.auth.findFirst({
+        where: {
+            userId: user.id,
+            provider: "credentials",
+        },
+    });
+
+    if (!authProvider) {
+        throw new AppError(
+            "This account was registered using social login. Please login with Google.",
+            400
+        );
+    }
+
+    if (!user.password) {
+        throw new AppError("Invalid email or password", 401);
+    }
+
+    const isPasswordValid = await bcrypt.compare(data.password, user.password);
+
+    if (!isPasswordValid) {
+        throw new AppError("Invalid email or password", 401);
+    }
+
+    const tokenPayload: TJwtPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+    };
+
+    // Generate tokens
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    return {
+        accessToken,
+        refreshToken,
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+        },
+    };
+};
+
+
+export const AuthService = { register, login };
