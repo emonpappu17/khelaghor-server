@@ -11,13 +11,17 @@ router.post(
     AuthController.register
 );
 
-//login work
-
 router.post(
     '/login',
     validateRequest(AuthValidation.loginSchema),
     AuthController.login
 );
+
+router.post(
+    '/logout',
+    AuthController.logout
+);
+
 
 
 

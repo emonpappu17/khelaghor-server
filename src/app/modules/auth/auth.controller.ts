@@ -4,6 +4,7 @@ import sendResponse from '../../utils/sendResponse';
 import { AuthService } from './auth.service';
 import { LoginInput, RegisterInput } from './auth.validation';
 import { setAuthCookie } from '../../utils/setCookie';
+import { env } from '../../config/env';
 
 const register = catchAsync(async (req: Request, res: Response) => {
     const result = await AuthService.register(req.body as RegisterInput);
@@ -32,5 +33,31 @@ const login = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const logout = catchAsync(async (_req: Request, res: Response) => {
+    // res.clearCookie('refreshToken', {
+    //     httpOnly: true,
+    //     secure: process.env.NODE_ENV === 'production',
+    //     sameSite: 'strict',
+    // });
 
-export const AuthController = { register, login };
+    res.clearCookie("accessToken", {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
+    res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: 'Logged out successfully',
+    });
+});
+
+
+export const AuthController = { register, login, logout };
