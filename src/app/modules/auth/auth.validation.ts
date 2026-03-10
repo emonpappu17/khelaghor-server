@@ -40,10 +40,29 @@ const loginSchema = z.object({
         .min(1, "Password is required"),
 });
 
+const changePasswordSchema = z.object({
+    oldPassword: z
+        .string()
+        .min(6, "Old password must be at least 6 characters"),
+
+    newPassword: z
+        .string()
+        .min(6, "New password must be at least 6 characters"),
+});
+
+const forgotPasswordSchema = z.object({
+    email: z
+        .email("Invalid email address"),
+})
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type forgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const AuthValidation = {
     registerSchema,
     loginSchema,
+    changePasswordSchema,
+    forgotPasswordSchema
 };

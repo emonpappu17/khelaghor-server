@@ -2,7 +2,7 @@ import { AuthProvider, UserRole } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import bcrypt from 'bcrypt';
-import { LoginInput, RegisterInput } from "./auth.validation";
+import { ChangePasswordInput, LoginInput, RegisterInput } from "./auth.validation";
 import { generateAccessToken, generateRefreshToken, TJwtPayload } from "../../utils/jwt";
 
 const register = async (data: RegisterInput) => {
@@ -57,43 +57,6 @@ const register = async (data: RegisterInput) => {
 
     return result;
 };
-
-// const login = async (data: LoginInput) => {
-//     const user = await prisma.user.findUnique({
-//         where: { email: data.email, isDeleted: false },
-//     });
-
-//     if (!user || !user.password) {
-//         throw new AppError('Invalid email or password', 401
-//         );
-//     }
-
-//     // Compare password
-//     const isPasswordValid = await bcrypt.compare(data.password, user.password);
-
-//     if (!isPasswordValid) {
-//         throw new AppError('Invalid email or password', 401);
-//     }
-
-//     // Generate tokens
-//     const tokenPayload = { userId: user.id, email: user.email, role: user.role } as TJwtPayload;
-
-//     const accessToken = generateAccessToken(tokenPayload);
-//     const refreshToken = generateRefreshToken(tokenPayload);
-
-//     return {
-//         accessToken,
-//         refreshToken,
-//         user: {
-//             id: user.id,
-//             name: user.name,
-//             email: user.email,
-//             role: user.role,
-//             avatar: user.avatar,
-//         },
-//     };
-// };
-
 
 const login = async (data: LoginInput) => {
     const user = await prisma.user.findUnique({
@@ -170,5 +133,29 @@ const login = async (data: LoginInput) => {
     };
 };
 
+const changePassword = async (user: TJwtPayload, data: ChangePasswordInput) => {
+    const existingUser = await prisma.user.findUnique({
+        where: { id: user.userId },
+    });
 
-export const AuthService = { register, login };
+    if (!existingUser) {
+        throw new AppError("User not found", 404);
+    }
+
+    const isMatch = await bcrypt.compare(data.oldPassword, existingUser.password);
+    if (!isMatch) {
+        throw new AppError("Old password is incorrect", 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+
+    await prisma.user.update({
+        where: { id: user.userId },
+        data: { password: hashedPassword },
+    });
+
+    return { message: "Password changed successfully" };
+}
+
+
+export const AuthService = { register, login, changePassword };
