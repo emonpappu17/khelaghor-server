@@ -1,12 +1,16 @@
+import bcrypt from 'bcrypt';
 import { AuthProvider, UserRole } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
-import bcrypt from 'bcrypt';
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput } from "./auth.validation";
+import { redisClient } from "../../lib/redis";
+import { generateOtpEmailHTML } from "../../utils/emailHTMLtext";
+import { generateOTP } from "../../utils/generateOTP";
 import { generateAccessToken, generateRefreshToken, TJwtPayload } from "../../utils/jwt";
-import { randomBytes } from "crypto";
+import { sendEmail } from "../../utils/sendEmail";
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput } from "./auth.validation";
 
 const OTP_PREFIX = "forgot-password-otp:";
+const OTP_EXPIRATION = 2 * 60 //2 minute
 
 const register = async (data: RegisterInput) => {
     const existingUser = await prisma.user.findUnique({
@@ -161,7 +165,6 @@ const changePassword = async (user: TJwtPayload, data: ChangePasswordInput) => {
 }
 
 const forgotPassword = async (data: ForgotPasswordInput) => {
-    // 1. Check if user exists
     const user = await prisma.user.findUnique({
         where: { email: data.email },
     });
@@ -170,23 +173,22 @@ const forgotPassword = async (data: ForgotPasswordInput) => {
         throw new AppError("User with this email does not exist", 404);
     }
 
-    // 2. Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOTP();
 
-    // 3. Store OTP in Redis with TTL (e.g., 5 minutes)
-    await redis.set(`${OTP_PREFIX}${user.email}`, otp, { EX: 60 * 5 });
-
-    // 4. Send OTP via email
-    await sendEmail({
-        to: user.email,
-        subject: "Your Password Reset OTP",
-        html: `
-      <h2>Password Reset</h2>
-      <p>Hello ${user.name},</p>
-      <p>Your OTP code is: <strong>${otp}</strong></p>
-      <p>This code will expire in 5 minutes.</p>
-    `,
+    await redisClient.set(`${OTP_PREFIX}${user.email}`, otp, {
+        expiration: {
+            type: "EX",
+            value: OTP_EXPIRATION
+        }
     });
+
+    const emailHtml = generateOtpEmailHTML(otp);
+
+    await sendEmail(
+        user.email,
+        emailHtml,
+        "Your Password Reset OTP",
+    );
 
     return { message: "OTP sent to your email" };
 }

@@ -56,4 +56,11 @@ export const env = {
     REDIS_PORT: Number(process.env.REDIS_PORT) || 6379,
     REDIS_USERNAME: process.env.REDIS_USERNAME || undefined,
     REDIS_PASSWORD: process.env.REDIS_PASSWORD || undefined,
+
+    // SMTP
+    SMTP_HOST: process.env.SMTP_HOST as string,
+    SMTP_PORT: Number(process.env.SMTP_PORT) || 465,
+    SMTP_USER: process.env.SMTP_USER as string,
+    SMTP_PASS: process.env.SMTP_PASS as string,
+    SMTP_FROM: process.env.SMTP_FROM as string,
 };
