@@ -7,7 +7,7 @@ import { generateOtpEmailHTML } from "../../utils/emailHTMLtext";
 import { generateOTP } from "../../utils/generateOTP";
 import { generateAccessToken, generateRefreshToken, TJwtPayload } from "../../utils/jwt";
 import { sendEmail } from "../../utils/sendEmail";
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput } from "./auth.validation";
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, VerifyOptInput } from "./auth.validation";
 
 const OTP_PREFIX = "forgot-password-otp:";
 const OTP_EXPIRATION = 2 * 60 //2 minute
@@ -193,5 +193,29 @@ const forgotPassword = async (data: ForgotPasswordInput) => {
     return { message: "OTP sent to your email" };
 }
 
+const verifyForgotPasswordOtp = async (data: VerifyOptInput) => {
+    const user = await prisma.user.findUnique({
+        where: { email: data.email },
+    });
 
-export const AuthService = { register, login, changePassword, forgotPassword };
+    if (!user) {
+        throw new AppError("User with this email does not exist", 404);
+    }
+
+    const storedOtp = await redisClient.get(`${OTP_PREFIX}${user.email}`);
+
+    if (!storedOtp) {
+        throw new AppError("OTP expired or not found", 400);
+    }
+
+    if (storedOtp !== data.otp.toString()) {
+        throw new AppError("Invalid OTP", 400);
+    }
+
+    await redisClient.del(`${OTP_PREFIX}${user.email}`);
+
+    return { message: "OTP verified successfully. You may now reset your password." };
+};
+
+
+export const AuthService = { register, login, changePassword, forgotPassword, verifyForgotPasswordOtp };

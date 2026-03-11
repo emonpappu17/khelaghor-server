@@ -55,14 +55,22 @@ const forgotPasswordSchema = z.object({
         .email("Invalid email address"),
 })
 
+const verifyOptSchema = z.object({
+    email: z
+        .email("Invalid email address"),
+    otp: z.number().int().min(100000).max(999999),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type VerifyOptInput = z.infer<typeof verifyOptSchema>;
 
 export const AuthValidation = {
     registerSchema,
     loginSchema,
     changePasswordSchema,
-    forgotPasswordSchema
+    forgotPasswordSchema,
+    verifyOptSchema
 };

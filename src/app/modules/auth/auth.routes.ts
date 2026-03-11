@@ -32,6 +32,12 @@ router.post(
 )
 
 router.post(
+    "/verify-otp",
+    validateRequest(AuthValidation.verifyOptSchema),
+    AuthController.verifyForgotPasswordOtp
+);
+
+router.post(
     '/logout',
     AuthController.logout
 );

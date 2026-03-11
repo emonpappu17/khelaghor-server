@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { AuthService } from './auth.service';
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput } from './auth.validation';
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, VerifyOptInput } from './auth.validation';
 import { setAuthCookie } from '../../utils/setCookie';
 import { env } from '../../config/env';
 
@@ -57,6 +57,17 @@ const forgotPassword = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const verifyForgotPasswordOtp = catchAsync(async (req: Request, res: Response) => {
+    const result = await AuthService.verifyForgotPasswordOtp(req.body as VerifyOptInput);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "OTP verified successfully",
+        data: result,
+    });
+});
+
 const logout = catchAsync(async (_req: Request, res: Response) => {
     res.clearCookie("accessToken", {
         httpOnly: true,
@@ -77,4 +88,4 @@ const logout = catchAsync(async (_req: Request, res: Response) => {
     });
 });
 
-export const AuthController = { register, login, logout, changePassword, forgotPassword };
+export const AuthController = { register, login, logout, changePassword, forgotPassword, verifyForgotPasswordOtp };
