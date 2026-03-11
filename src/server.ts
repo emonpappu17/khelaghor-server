@@ -2,12 +2,14 @@ import { Server } from 'http';
 import app from "./app";
 import { env } from "./app/config/env";
 import { seedSuperAdmin } from "./app/utils/seedAdmin";
+import { connectRedis } from './app/lib/redis';
 
 let server: Server;
 
 async function main() {
   try {
     // 1. Initial Logic (DB Seed, etc.)
+    await connectRedis();
     await seedSuperAdmin();
 
     // 2. Start Listening

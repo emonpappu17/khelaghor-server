@@ -2,8 +2,11 @@ import { AuthProvider, UserRole } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import bcrypt from 'bcrypt';
-import { ChangePasswordInput, LoginInput, RegisterInput } from "./auth.validation";
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput } from "./auth.validation";
 import { generateAccessToken, generateRefreshToken, TJwtPayload } from "../../utils/jwt";
+import { randomBytes } from "crypto";
+
+const OTP_PREFIX = "forgot-password-otp:";
 
 const register = async (data: RegisterInput) => {
     const existingUser = await prisma.user.findUnique({
@@ -157,5 +160,36 @@ const changePassword = async (user: TJwtPayload, data: ChangePasswordInput) => {
     return { message: "Password changed successfully" };
 }
 
+const forgotPassword = async (data: ForgotPasswordInput) => {
+    // 1. Check if user exists
+    const user = await prisma.user.findUnique({
+        where: { email: data.email },
+    });
 
-export const AuthService = { register, login, changePassword };
+    if (!user) {
+        throw new AppError("User with this email does not exist", 404);
+    }
+
+    // 2. Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Store OTP in Redis with TTL (e.g., 5 minutes)
+    await redis.set(`${OTP_PREFIX}${user.email}`, otp, { EX: 60 * 5 });
+
+    // 4. Send OTP via email
+    await sendEmail({
+        to: user.email,
+        subject: "Your Password Reset OTP",
+        html: `
+      <h2>Password Reset</h2>
+      <p>Hello ${user.name},</p>
+      <p>Your OTP code is: <strong>${otp}</strong></p>
+      <p>This code will expire in 5 minutes.</p>
+    `,
+    });
+
+    return { message: "OTP sent to your email" };
+}
+
+
+export const AuthService = { register, login, changePassword, forgotPassword };

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { AuthService } from './auth.service';
-import { ChangePasswordInput, LoginInput, RegisterInput } from './auth.validation';
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput } from './auth.validation';
 import { setAuthCookie } from '../../utils/setCookie';
 import { env } from '../../config/env';
 
@@ -35,13 +35,24 @@ const login = catchAsync(async (req: Request, res: Response) => {
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
     const user = req.user;
-    console.log('user==>', user);
     const result = await AuthService.changePassword(user, req?.body as ChangePasswordInput);
 
     sendResponse(res, {
         statusCode: 200,
         success: true,
         message: 'Password changed successfully',
+        data: result
+    });
+});
+
+const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+
+    const result = await AuthService.forgotPassword(req?.body as ForgotPasswordInput);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: 'OTP sent to your email',
         data: result
     });
 });
@@ -66,5 +77,4 @@ const logout = catchAsync(async (_req: Request, res: Response) => {
     });
 });
 
-
-export const AuthController = { register, login, logout, changePassword };
+export const AuthController = { register, login, logout, changePassword, forgotPassword };
