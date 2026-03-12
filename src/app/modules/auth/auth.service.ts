@@ -5,7 +5,7 @@ import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { generateOtpEmailHTML } from "../../utils/emailHTMLtext";
 import { generateOTP } from "../../utils/generateOTP";
-import { generateAccessToken, generateRefreshToken, TJwtPayload } from "../../utils/jwt";
+import { generateAccessToken, generateRefreshToken, generateResetPassToken, TJwtPayload } from "../../utils/jwt";
 import { sendEmail } from "../../utils/sendEmail";
 import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, VerifyOptInput } from "./auth.validation";
 
@@ -214,7 +214,15 @@ const verifyForgotPasswordOtp = async (data: VerifyOptInput) => {
 
     await redisClient.del(`${OTP_PREFIX}${user.email}`);
 
-    return { message: "OTP verified successfully. You may now reset your password." };
+    const tokenPayload: TJwtPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+    };
+
+    const resetToken = generateResetPassToken(tokenPayload);
+
+    return { message: "OTP verified successfully", resetToken };
 };
 
 

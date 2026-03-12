@@ -40,6 +40,8 @@ export const env = {
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET as string,
     JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "1d",
     JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+    RESET_PASS_SECRET: process.env.RESET_PASS_SECRET as string,
+    RESET_PASS_EXPIRES_IN: process.env.RESET_PASS_EXPIRES_IN || "5m",
 
     // Bcrypt
     BCRYPT_SALT_ROUNDS: Number(process.env.BCRYPT_SALT_ROUNDS) || 10,
