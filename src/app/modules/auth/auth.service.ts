@@ -7,7 +7,7 @@ import { generateOtpEmailHTML } from "../../utils/emailHTMLtext";
 import { generateOTP } from "../../utils/generateOTP";
 import { generateAccessToken, generateRefreshToken, generateResetPassToken, TJwtPayload } from "../../utils/jwt";
 import { sendEmail } from "../../utils/sendEmail";
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, VerifyOptInput } from "./auth.validation";
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, VerifyOptInput } from "./auth.validation";
 
 const OTP_PREFIX = "forgot-password-otp:";
 const OTP_EXPIRATION = 2 * 60 //2 minute
@@ -225,5 +225,31 @@ const verifyForgotPasswordOtp = async (data: VerifyOptInput) => {
     return { message: "OTP verified successfully", resetToken };
 };
 
+const resetPassword = async (data: ResetPasswordInput, userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+    });
 
-export const AuthService = { register, login, changePassword, forgotPassword, verifyForgotPasswordOtp };
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword },
+    });
+
+    return { message: "Password reset successfully" };
+};
+
+
+export const AuthService = {
+    register,
+    login,
+    changePassword,
+    forgotPassword,
+    verifyForgotPasswordOtp,
+    resetPassword
+};

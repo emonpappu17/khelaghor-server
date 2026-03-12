@@ -38,6 +38,12 @@ router.post(
 );
 
 router.post(
+    "/reset-password",
+    validateRequest(AuthValidation.resetPasswordSchema),
+    AuthController.resetPassword
+);
+
+router.post(
     '/logout',
     AuthController.logout
 );

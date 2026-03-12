@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { AuthService } from './auth.service';
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, VerifyOptInput } from './auth.validation';
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, VerifyOptInput } from './auth.validation';
 import { setAuthCookie } from '../../utils/setCookie';
 import { env } from '../../config/env';
+import { verifyResetToken } from '../../utils/jwt';
 
 const register = catchAsync(async (req: Request, res: Response) => {
     const result = await AuthService.register(req.body as RegisterInput);
@@ -68,6 +69,20 @@ const verifyForgotPasswordOtp = catchAsync(async (req: Request, res: Response) =
     });
 });
 
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+    const resetToken = req?.headers.authorization;
+    req.user = verifyResetToken(resetToken as string);
+
+    const result = await AuthService.resetPassword(req.body as ResetPasswordInput, req.user.userId);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "Password reset successfully",
+        data: result,
+    });
+});
+
 const logout = catchAsync(async (_req: Request, res: Response) => {
     res.clearCookie("accessToken", {
         httpOnly: true,
@@ -88,4 +103,12 @@ const logout = catchAsync(async (_req: Request, res: Response) => {
     });
 });
 
-export const AuthController = { register, login, logout, changePassword, forgotPassword, verifyForgotPasswordOtp };
+export const AuthController = {
+    register,
+    login,
+    logout,
+    changePassword,
+    forgotPassword,
+    verifyForgotPasswordOtp,
+    resetPassword
+};
