@@ -5,12 +5,16 @@ import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { generateOtpEmailHTML } from "../../utils/emailHTMLtext";
 import { generateOTP } from "../../utils/generateOTP";
-import { generateAccessToken, generateRefreshToken, generateResetPassToken, TJwtPayload } from "../../utils/jwt";
+import { generateAccessToken, generateRefreshToken, generateResetPassToken, TJwtPayload, verifyRefreshToken } from "../../utils/jwt";
 import { sendEmail } from "../../utils/sendEmail";
 import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, VerifyOptInput } from "./auth.validation";
+import { parseTimeToMs } from '../../utils/parseTime';
+import { env } from '../../config/env';
 
 const OTP_PREFIX = "forgot-password-otp:";
 const OTP_EXPIRATION = 2 * 60 //2 minute
+const REFRESH_PREFIX = "refresh-token:";
+
 
 const register = async (data: RegisterInput) => {
     const existingUser = await prisma.user.findUnique({
@@ -127,6 +131,13 @@ const login = async (data: LoginInput) => {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
+    const refreshMaxAge = parseTimeToMs(env.JWT_REFRESH_EXPIRES_IN);
+
+    // 🔄 Store refresh token for rotation
+    await redisClient.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, {
+        expiration: { type: "EX", value: refreshMaxAge }, 
+    });
+
     return {
         accessToken,
         refreshToken,
@@ -139,6 +150,50 @@ const login = async (data: LoginInput) => {
         },
     };
 };
+
+const getNewAccessToken = async (refreshToken: string) => {
+    const decoded = verifyRefreshToken(refreshToken) as TJwtPayload;
+
+    const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+            id: true,
+            email: true,
+            role: true,
+            status: true,
+            isDeleted: true,
+        },
+    });
+
+    if (!user) throw new AppError("User not found", 404);
+    if (user.isDeleted) throw new AppError("User account deleted", 403);
+    if (user.status !== "ACTIVE") throw new AppError("User account is not active", 403);
+
+    // Check if refresh token is valid in Redis
+    const storedToken = await redisClient.get(`${REFRESH_PREFIX}${user.id}`);
+    if (storedToken !== refreshToken) {
+        throw new AppError("Invalid or reused refresh token", 403);
+    }
+
+    const tokenPayload: TJwtPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+    };
+
+    const accessToken = generateAccessToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(tokenPayload);
+
+    const refreshMaxAge = parseTimeToMs(env.JWT_REFRESH_EXPIRES_IN);
+
+    // Rotate: replace old refresh token with new one
+    await redisClient.set(`${REFRESH_PREFIX}${user.id}`, newRefreshToken, {
+        expiration: { type: "EX", value: refreshMaxAge },
+    });
+
+    return { accessToken, newRefreshToken };
+};
+
 
 const changePassword = async (user: TJwtPayload, data: ChangePasswordInput) => {
     const existingUser = await prisma.user.findUnique({
@@ -251,5 +306,6 @@ export const AuthService = {
     changePassword,
     forgotPassword,
     verifyForgotPasswordOtp,
-    resetPassword
+    resetPassword,
+    getNewAccessToken
 };

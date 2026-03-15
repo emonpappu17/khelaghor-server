@@ -31,7 +31,7 @@ export const verifyAccessToken = (token: string): TJwtPayload => {
 };
 
 export const verifyRefreshToken = (token: string): TJwtPayload => {
-    return jwt.verify(token, env.JWT_ACCESS_SECRET) as TJwtPayload;
+    return jwt.verify(token, env.JWT_REFRESH_SECRET) as TJwtPayload;
 };
 
 export const verifyResetToken = (token: string): TJwtPayload => {

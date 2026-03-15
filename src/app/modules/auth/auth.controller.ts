@@ -6,6 +6,12 @@ import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, Re
 import { setAuthCookie } from '../../utils/setCookie';
 import { env } from '../../config/env';
 import { generateAccessToken, generateRefreshToken, TJwtPayload, verifyResetToken } from '../../utils/jwt';
+import { AppError } from '../../errors/AppError';
+import { UserWithAuths } from '../../config/passport';
+import { parseTimeToMs } from '../../utils/parseTime';
+import { redisClient } from '../../lib/redis';
+
+const REFRESH_PREFIX = "refresh-token:";
 
 const register = catchAsync(async (req: Request, res: Response) => {
     const result = await AuthService.register(req.body as RegisterInput);
@@ -33,6 +39,26 @@ const login = catchAsync(async (req: Request, res: Response) => {
         },
     });
 });
+
+
+const getNewAccessToken = catchAsync(async (req: Request, res: Response) => {
+
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) throw new AppError("Refresh token not found", 401);
+
+    const result = await AuthService.getNewAccessToken(refreshToken as string);
+
+    setAuthCookie(res, { accessToken: result.accessToken, refreshToken: result.newRefreshToken })
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: 'Token refreshed successfully',
+        data: result,
+    });
+})
+
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
     const user = req.user;
@@ -83,7 +109,7 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-const logout = catchAsync(async (_req: Request, res: Response) => {
+const logout = catchAsync(async (req: Request, res: Response) => {
     res.clearCookie("accessToken", {
         httpOnly: true,
         secure: env.NODE_ENV === "production",
@@ -95,6 +121,11 @@ const logout = catchAsync(async (_req: Request, res: Response) => {
         secure: env.NODE_ENV === "production",
         sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     });
+
+    // 🔄 Invalidate refresh token in Redis
+    if (req.user) {
+        await redisClient.del(`${REFRESH_PREFIX}${(req.user as TJwtPayload).userId}`);
+    }
 
     sendResponse(res, {
         statusCode: 200,
@@ -114,11 +145,24 @@ const googleCallback = catchAsync(async (req: Request, res: Response) => {
         return res.redirect(`${env.CLIENT_URL}/login?error=GoogleAuthFailed`);
     }
 
-    const user = req.user as any;
+    const user = req.user as UserWithAuths;
 
     // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    const tokenPayload: TJwtPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+    };
+
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    const refreshMaxAge = parseTimeToMs(env.JWT_REFRESH_EXPIRES_IN);
+
+    // 🔄 Store refresh token for rotation
+    await redisClient.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, {
+        expiration: { type: "EX", value: refreshMaxAge },
+    });
 
     setAuthCookie(res, { accessToken, refreshToken })
 
@@ -133,5 +177,6 @@ export const AuthController = {
     forgotPassword,
     verifyForgotPasswordOtp,
     resetPassword,
-    googleCallback
+    googleCallback,
+    getNewAccessToken
 };

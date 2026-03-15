@@ -6,7 +6,7 @@ import { AuthProvider, UserRole, UserStatus } from "../../generated/prisma/enums
 import { Prisma } from "../../generated/prisma/client";
 import { AppError } from "../errors/AppError";
 
-type UserWithAuths = Prisma.UserGetPayload<{ include: { auths: true } }>;
+export type UserWithAuths = Prisma.UserGetPayload<{ include: { auths: true } }>;
 
 passport.use(
     new GoogleStrategy(

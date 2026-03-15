@@ -21,6 +21,11 @@ router.post(
 );
 
 router.post(
+    "/refresh-token",
+    AuthController.getNewAccessToken
+)
+
+router.post(
     '/change-password',
     checkAuth(),
     validateRequest(AuthValidation.changePasswordSchema),
@@ -47,6 +52,7 @@ router.post(
 
 router.post(
     '/logout',
+    checkAuth(),
     AuthController.logout
 );
 
