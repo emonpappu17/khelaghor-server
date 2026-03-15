@@ -1,8 +1,10 @@
-import { Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import validateRequest from '../../middlewares/validateRequest';
 import { AuthValidation } from './auth.validation';
 import { AuthController } from './auth.controller';
 import { checkAuth } from '../../middlewares/checkAuth';
+import passport from 'passport';
+import { env } from '../../config/env';
 
 const router = Router();
 
@@ -47,5 +49,21 @@ router.post(
     '/logout',
     AuthController.logout
 );
+
+router.get(
+    '/google',
+    (req: Request, res: Response, next: NextFunction) => {
+        // const state = req.query.role === 'HOST' ? 'HOST' : 'USER';
+        const redirect = req.query.redirect || "/"
+        passport.authenticate("google", { scope: ['profile', 'email'], state: redirect as string })(req, res, next);
+    }
+);
+
+router.get(
+    '/google/callback',
+    passport.authenticate('google', { failureRedirect: `${env.CLIENT_URL}/login?error=There is some issue with your account. Please contact with out support team!`, session: false }),
+    AuthController.googleCallback
+);
+
 
 export const AuthRoutes = router;

@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, VerifyOptInput } from './auth.validation';
 import { setAuthCookie } from '../../utils/setCookie';
 import { env } from '../../config/env';
-import { verifyResetToken } from '../../utils/jwt';
+import { generateAccessToken, generateRefreshToken, TJwtPayload, verifyResetToken } from '../../utils/jwt';
 
 const register = catchAsync(async (req: Request, res: Response) => {
     const result = await AuthService.register(req.body as RegisterInput);
@@ -36,7 +36,7 @@ const login = catchAsync(async (req: Request, res: Response) => {
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
     const user = req.user;
-    const result = await AuthService.changePassword(user, req?.body as ChangePasswordInput);
+    const result = await AuthService.changePassword(user as TJwtPayload, req?.body as ChangePasswordInput);
 
     sendResponse(res, {
         statusCode: 200,
@@ -71,9 +71,9 @@ const verifyForgotPasswordOtp = catchAsync(async (req: Request, res: Response) =
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
     const resetToken = req?.headers.authorization;
-    req.user = verifyResetToken(resetToken as string);
+    req.user = verifyResetToken(resetToken as string) as TJwtPayload;
 
-    const result = await AuthService.resetPassword(req.body as ResetPasswordInput, req.user.userId);
+    const result = await AuthService.resetPassword(req.body as ResetPasswordInput, (req.user as TJwtPayload).userId);
 
     sendResponse(res, {
         statusCode: 200,
@@ -103,6 +103,28 @@ const logout = catchAsync(async (_req: Request, res: Response) => {
     });
 });
 
+const googleCallback = catchAsync(async (req: Request, res: Response) => {
+    let redirectTo = req.query.state ? req.query.state as string : "";
+
+    if (redirectTo.startsWith("/")) {
+        redirectTo = redirectTo.slice(1);
+    }
+
+    if (!req.user) {
+        return res.redirect(`${env.CLIENT_URL}/login?error=GoogleAuthFailed`);
+    }
+
+    const user = req.user as any;
+
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    setAuthCookie(res, { accessToken, refreshToken })
+
+    res.redirect(`${env.CLIENT_URL}/${redirectTo}`)
+});
+
 export const AuthController = {
     register,
     login,
@@ -110,5 +132,6 @@ export const AuthController = {
     changePassword,
     forgotPassword,
     verifyForgotPasswordOtp,
-    resetPassword
+    resetPassword,
+    googleCallback
 };

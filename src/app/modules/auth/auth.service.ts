@@ -149,7 +149,7 @@ const changePassword = async (user: TJwtPayload, data: ChangePasswordInput) => {
         throw new AppError("User not found", 404);
     }
 
-    const isMatch = await bcrypt.compare(data.oldPassword, existingUser.password);
+    const isMatch = await bcrypt.compare(data.oldPassword, existingUser.password as string);
     if (!isMatch) {
         throw new AppError("Old password is incorrect", 400);
     }
