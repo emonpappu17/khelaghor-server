@@ -38,27 +38,27 @@ const getProfile = async (userId: string) => {
     return user;
 };
 
-// const updateProfile = async (userId: string, data: UpdateProfileInput) => {
-//   const user = await prisma.user.findUnique({
-//     where: { id: userId },
-//     select: { id: true },
-//   });
+const updateProfile = async (userId: string, data: UpdateProfileInput) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+    });
 
-//   if (!user) {
-//     throw new AppError("User not found", 404);
-//   }
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
 
-//   const updated = await prisma.user.update({
-//     where: { id: userId },
-//     data: {
-//       name: data.name,
-//       phone: data.phone,
-//       avatar: data.avatar,
-//     },
-//   });
+    const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+            name: data.name,
+            phone: data.phone,
+            avatar: data.avatar,
+        },
+    });
 
-//   return updated;
-// };
+    return updated;
+};
 
 // const deleteAccount = async (userId: string) => {
 //   const user = await prisma.user.findUnique({
@@ -228,7 +228,7 @@ const getProfile = async (userId: string) => {
 
 export const UserService = {
     getProfile,
-    //   updateProfile,
+    updateProfile,
     //   deleteAccount,
     //   getUsers,
     //   getUserById,

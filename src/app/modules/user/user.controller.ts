@@ -17,21 +17,21 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-// const updateMe = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.user.userId;
-//   const payload = req.body as UpdateProfileInput;
-//   const user = await UserService.updateProfile(userId, payload);
+const updateMe = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.authUser.userId;
+    const payload = req.body as UpdateProfileInput;
+    const user = await UserService.updateProfile(userId, payload);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "Profile updated successfully",
-//     data: user,
-//   });
-// });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "Profile updated successfully",
+        data: user,
+    });
+});
 
 // const deleteMe = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.user.userId;
+//   const userId = req.authUser.userId;
 //   const result = await UserService.deleteAccount(userId);
 
 //   sendResponse(res, {
@@ -111,7 +111,7 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
 
 export const UserController = {
     getMe,
-    //   updateMe,
+    updateMe,
     //   deleteMe,
     //   listUsers,
     //   getUser,

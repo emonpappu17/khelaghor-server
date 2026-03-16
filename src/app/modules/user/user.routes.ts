@@ -8,12 +8,12 @@ const router = Router();
 
 // Authenticated user endpoints
 router.get("/me", checkAuth(), UserController.getMe);
-// router.patch(
-//   "/me",
-//   checkAuth(),
-//   validateRequest(UserValidation.updateProfileSchema),
-//   UserController.updateMe
-// );
+router.patch(
+  "/me",
+  checkAuth(),
+  validateRequest(UserValidation.updateProfileSchema),
+  UserController.updateMe
+);
 // router.delete("/me", checkAuth(), UserController.deleteMe);
 
 // // admin-only endpoints
