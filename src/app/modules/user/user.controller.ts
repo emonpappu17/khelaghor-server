@@ -30,17 +30,17 @@ const updateMe = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-// const deleteMe = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.authUser.userId;
-//   const result = await UserService.deleteAccount(userId);
+const deleteMe = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.authUser.userId;
+  const result = await UserService.deleteAccount(userId);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "Account deleted successfully",
-//     data: result,
-//   });
-// });
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Account deleted successfully",
+    data: result,
+  });
+});
 
 // const listUsers = catchAsync(async (req: Request, res: Response) => {
 //   const page = Number(req.query.page) || 1;
@@ -112,7 +112,7 @@ const updateMe = catchAsync(async (req: Request, res: Response) => {
 export const UserController = {
     getMe,
     updateMe,
-    //   deleteMe,
+    deleteMe,
     //   listUsers,
     //   getUser,
     //   updateUserStatus,

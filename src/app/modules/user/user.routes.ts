@@ -14,7 +14,7 @@ router.patch(
   validateRequest(UserValidation.updateProfileSchema),
   UserController.updateMe
 );
-// router.delete("/me", checkAuth(), UserController.deleteMe);
+router.delete("/me", checkAuth(), UserController.deleteMe);
 
 // // admin-only endpoints
 // router.get("/", checkAuth("ADMIN", "SUPER_ADMIN"), UserController.listUsers);

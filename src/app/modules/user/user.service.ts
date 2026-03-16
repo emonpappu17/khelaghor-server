@@ -60,27 +60,27 @@ const updateProfile = async (userId: string, data: UpdateProfileInput) => {
     return updated;
 };
 
-// const deleteAccount = async (userId: string) => {
-//   const user = await prisma.user.findUnique({
-//     where: { id: userId },
-//     select: { id: true, isDeleted: true },
-//   });
+const deleteAccount = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, isDeleted: true },
+    });
 
-//   if (!user) {
-//     throw new AppError("User not found", 404);
-//   }
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
 
-//   if (user.isDeleted) {
-//     throw new AppError("User account already deleted", 400);
-//   }
+    if (user.isDeleted) {
+        throw new AppError("User account already deleted", 400);
+    }
 
-//   await prisma.user.update({
-//     where: { id: userId },
-//     data: { isDeleted: true },
-//   });
+    await prisma.user.update({
+        where: { id: userId },
+        data: { isDeleted: true },
+    });
 
-//   return { message: "Account deleted successfully" };
-// };
+    return { message: "Account deleted successfully" };
+};
 
 // const getUsers = async (options: {
 //   page?: number;
@@ -229,7 +229,7 @@ const updateProfile = async (userId: string, data: UpdateProfileInput) => {
 export const UserService = {
     getProfile,
     updateProfile,
-    //   deleteAccount,
+    deleteAccount,
     //   getUsers,
     //   getUserById,
     //   updateUserStatus,
