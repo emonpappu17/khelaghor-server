@@ -44,9 +44,11 @@ export const errorHandler: ErrorRequestHandler = (
             statusCode = err.statusCode;
             message = err.message;
         }
+        else if (err instanceof Error) {
+            message = err.message;
+        }
     }
 
-    console.error("🔥 Error:", err);
 
     const response: Record<string, unknown> = {
         success: false,
@@ -58,6 +60,7 @@ export const errorHandler: ErrorRequestHandler = (
         response.stack = err instanceof Error ? err.stack : undefined;
     }
 
+    console.error("🔥 Error:", err);
     console.log('error res==>', response);
 
     res.status(statusCode).json(response);
