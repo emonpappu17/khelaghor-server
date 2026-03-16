@@ -2,6 +2,8 @@ import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { UserRole } from "../../../generated/prisma/enums";
 import type { UpdateProfileInput, UpdateRoleInput, UpdateStatusInput } from "./user.validation";
+import { TPaginationOptions } from "../../types/pagination";
+import { calculatePagination } from "../../utils/calculatePagination";
 
 const getProfile = async (userId: string) => {
     const user = await prisma.user.findUnique({
@@ -82,51 +84,47 @@ const deleteAccount = async (userId: string) => {
     return { message: "Account deleted successfully" };
 };
 
-// const getUsers = async (options: {
-//   page?: number;
-//   limit?: number;
-//   role?: string;
-//   status?: string;
-// }) => {
-//   const page = options.page && options.page > 0 ? options.page : 1;
-//   const limit = options.limit && options.limit > 0 ? options.limit : 20;
-//   const skip = (page - 1) * limit;
+const getUsers = async (
+    filters: { role?: string; status?: string },
+    options: TPaginationOptions
+) => {
+    const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
 
-//   const where: any = {
-//     isDeleted: false,
-//   };
+    const where: any = { isDeleted: false };
 
-//   if (options.role) {
-//     where.role = options.role;
-//   }
+    if (filters.role) {
+        where.role = filters.role;
+    }
 
-//   if (options.status) {
-//     where.status = options.status;
-//   }
+    if (filters.status) {
+        where.status = filters.status;
+    }
 
-//   const [total, users] = await prisma.$transaction([
-//     prisma.user.count({ where }),
-//     prisma.user.findMany({
-//       where,
-//       skip,
-//       take: limit,
-//       orderBy: { createdAt: "desc" },
-//       select: {
-//         id: true,
-//         name: true,
-//         email: true,
-//         phone: true,
-//         avatar: true,
-//         role: true,
-//         status: true,
-//         isVerified: true,
-//         createdAt: true,
-//       },
-//     }),
-//   ]);
+    const [total, users] = await prisma.$transaction([
+        prisma.user.count({ where }),
+        prisma.user.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                avatar: true,
+                role: true,
+                status: true,
+                isVerified: true,
+                createdAt: true,
+            },
+        }),
+    ]);
 
-//   return { users, total };
-// };
+    return { users, total, page, limit };
+};
+
+
 
 // const getUserById = async (id: string) => {
 //   const user = await prisma.user.findUnique({
@@ -230,7 +228,7 @@ export const UserService = {
     getProfile,
     updateProfile,
     deleteAccount,
-    //   getUsers,
+    getUsers,
     //   getUserById,
     //   updateUserStatus,
     //   updateUserRole,

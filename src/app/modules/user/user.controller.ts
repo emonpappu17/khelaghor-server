@@ -4,6 +4,7 @@ import sendResponse from "../../utils/sendResponse";
 import { UserService } from "./user.service";
 import type { UpdateProfileInput, UpdateRoleInput, UpdateStatusInput } from "./user.validation";
 import { TJwtPayload } from "../../utils/jwt";
+import pick from "../../utils/pick";
 
 const getMe = catchAsync(async (req: Request, res: Response) => {
     const userId = req.authUser.userId;
@@ -31,33 +32,31 @@ const updateMe = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteMe = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.authUser.userId;
-  const result = await UserService.deleteAccount(userId);
+    const userId = req.authUser.userId;
+    const result = await UserService.deleteAccount(userId);
 
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Account deleted successfully",
-    data: result,
-  });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "Account deleted successfully",
+        data: result,
+    });
 });
 
-// const listUsers = catchAsync(async (req: Request, res: Response) => {
-//   const page = Number(req.query.page) || 1;
-//   const limit = Number(req.query.limit) || 20;
-//   const role = req.query.role as string | undefined;
-//   const status = req.query.status as string | undefined;
+const listUsers = catchAsync(async (req: Request, res: Response) => {
+    const filters = pick(req.query, ["role", "status"]);
+    const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
-//   const { users, total } = await UserService.getUsers({ page, limit, role, status });
+    const { users, total, page, limit } = await UserService.getUsers(filters, options);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "Users fetched successfully",
-//     meta: { page, limit, total },
-//     data: users,
-//   });
-// });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "Users fetched successfully",
+        meta: { page, limit, total },
+        data: users,
+    });
+});
 
 // const getUser = catchAsync(async (req: Request, res: Response) => {
 //   const userId = req.params.id;
@@ -113,7 +112,7 @@ export const UserController = {
     getMe,
     updateMe,
     deleteMe,
-    //   listUsers,
+    listUsers,
     //   getUser,
     //   updateUserStatus,
     //   updateUserRole,
