@@ -94,7 +94,7 @@ passport.use(
                         }) as Promise<UserWithAuths>;
                     });
 
-                    return done(null, user);
+                    return done(null, user as UserWithAuths);
                 }
             } catch (error) {
                 return done(error, false);
