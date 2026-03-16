@@ -7,6 +7,8 @@ import { errorHandler } from "./app/middlewares/errorHandler";
 import sendResponse from "./app/utils/sendResponse";
 import { router } from "./app/routes";
 import { apiLimiter } from "./app/middlewares/apiLimiter";
+import passport from "passport";
+import "./app/config/passport";
 
 const app: Application = express();
 
@@ -19,6 +21,7 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(passport.initialize());
 
 app.use("/api/v1", apiLimiter, router);
 

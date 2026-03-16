@@ -74,14 +74,34 @@ type TPrismaErrorResponse = {
 };
 
 export const handlePrismaError = (
-    error: unknown
+    error: any
 ): TPrismaErrorResponse | null => {
+
+    // console.log('error.code==>', error?.code);
+    // console.log('error.meta==>', error?.meta);
+    // console.log('error.message==>', error?.message);
+    // console.log('error.meta?.cause?.originalMessage ==>', error.meta?.cause);
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         switch (error.code) {
-            // --- DATA ERRORS ---
             case "P2002": // Unique constraint
-                const target = (error.meta?.target as string[])?.join(", ") || "field";
+                // const target = (error.meta?.target as string[])?.join(", ") || "field";
+
+                let target: string | undefined;
+
+                if (Array.isArray(error.meta?.target)) {
+                    target = error.meta?.target.join(", ");
+                } else {
+                    const originalMessage = (error.meta?.driverAdapterError as any)?.cause?.originalMessage;
+                    if (originalMessage) {
+                        const match = originalMessage.match(/unique constraint "(.*?)"/);
+                        if (match) {
+                            target = match[1].replace(/.*_(\w+)_key$/, "$1"); // e.g. User_phone_key → phone
+                        }
+                    }
+                }
+
+                target = target || "field";
                 return {
                     statusCode: 409,
                     message: "Duplicate Entry",
