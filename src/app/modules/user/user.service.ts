@@ -4,38 +4,38 @@ import { UserRole } from "../../../generated/prisma/enums";
 import type { UpdateProfileInput, UpdateRoleInput, UpdateStatusInput } from "./user.validation";
 
 const getProfile = async (userId: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      avatar: true,
-      role: true,
-      status: true,
-      isVerified: true,
-      isDeleted: true,
-      createdAt: true,
-      updatedAt: true,
-      hostProfile: {
+    const user = await prisma.user.findUnique({
+        where: { id: userId, isDeleted: false },
         select: {
-          id: true,
-          businessName: true,
-          nidNumber: true,
-          isApproved: true,
-          approvedAt: true,
-          createdAt: true,
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatar: true,
+            role: true,
+            status: true,
+            isVerified: true,
+            // isDeleted: true,
+            createdAt: true,
+            updatedAt: true,
+            hostProfile: {
+                select: {
+                    id: true,
+                    businessName: true,
+                    nidNumber: true,
+                    isApproved: true,
+                    approvedAt: true,
+                    createdAt: true,
+                },
+            },
         },
-      },
-    },
-  });
+    });
 
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
 
-  return user;
+    return user;
 };
 
 // const updateProfile = async (userId: string, data: UpdateProfileInput) => {
@@ -227,12 +227,12 @@ const getProfile = async (userId: string) => {
 // };
 
 export const UserService = {
-  getProfile,
-//   updateProfile,
-//   deleteAccount,
-//   getUsers,
-//   getUserById,
-//   updateUserStatus,
-//   updateUserRole,
-//   deleteUser,
+    getProfile,
+    //   updateProfile,
+    //   deleteAccount,
+    //   getUsers,
+    //   getUserById,
+    //   updateUserStatus,
+    //   updateUserRole,
+    //   deleteUser,
 };
