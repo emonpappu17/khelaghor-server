@@ -31,18 +31,21 @@ router.get(
     checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
     UserController.getUser
 );
-// router.patch(
-//   "/:id/status",
-//   checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
-//   validateRequest(UserValidation.updateStatusSchema),
-//   UserController.updateUserStatus
-// );
-// router.patch(
-//   "/:id/role",
-//   checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
-//   validateRequest(UserValidation.updateRoleSchema),
-//   UserController.updateUserRole
-// );
+
+router.patch(
+    "/:id/status",
+    checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+    validateRequest(UserValidation.updateStatusSchema),
+    UserController.updateUserStatus
+);
+
+router.patch(
+    "/:id/role",
+    checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+    validateRequest(UserValidation.updateRoleSchema),
+    UserController.updateUserRole
+);
+
 // router.delete("/:id", checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN), UserController.deleteUser);
 
 export const UserRoutes = router;

@@ -70,31 +70,31 @@ const getUser = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-// const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.params.id;
-//   const payload = req.body as UpdateStatusInput;
-//   const user = await UserService.updateUserStatus(userId, payload);
+const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.params.id;
+    const payload = req.body as UpdateStatusInput;
+    const user = await UserService.updateUserStatus(userId as string, payload);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "User status updated successfully",
-//     data: user,
-//   });
-// });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "User status updated successfully",
+        data: user,
+    });
+});
 
-// const updateUserRole = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.params.id;
-//   const payload = req.body as UpdateRoleInput;
-//   const result = await UserService.updateUserRole(userId, payload);
+const updateUserRole = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.params.id;
+    const payload = req.body as UpdateRoleInput;
+    const result = await UserService.updateUserRole(userId as string, payload);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "User role updated successfully",
-//     data: result,
-//   });
-// });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "User role updated successfully",
+        data: result,
+    });
+});
 
 // const deleteUser = catchAsync(async (req: Request, res: Response) => {
 //   const userId = req.params.id;
@@ -114,7 +114,7 @@ export const UserController = {
     deleteMe,
     listUsers,
     getUser,
-    //   updateUserStatus,
-    //   updateUserRole,
+    updateUserStatus,
+    updateUserRole,
     //   deleteUser,
 };

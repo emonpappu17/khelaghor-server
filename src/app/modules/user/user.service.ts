@@ -126,80 +126,82 @@ const getUsers = async (
 
 
 const getUserById = async (id: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      avatar: true,
-      role: true,
-      status: true,
-      isVerified: true,
-      isDeleted: true,
-      createdAt: true,
-      updatedAt: true,
-      hostProfile: {
+    const user = await prisma.user.findUnique({
+        where: { id },
         select: {
-          id: true,
-          businessName: true,
-          nidNumber: true,
-          isApproved: true,
-          approvedAt: true,
-          createdAt: true,
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatar: true,
+            role: true,
+            status: true,
+            isVerified: true,
+            isDeleted: true,
+            createdAt: true,
+            updatedAt: true,
+            hostProfile: {
+                select: {
+                    id: true,
+                    businessName: true,
+                    nidNumber: true,
+                    isApproved: true,
+                    approvedAt: true,
+                    createdAt: true,
+                },
+            },
         },
-      },
-    },
-  });
+    });
 
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    return user;
+};
+
+const updateUserStatus = async (userId: string, data: UpdateStatusInput) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+            status: data.status,
+        },
+    });
+
+    return updated;
+};
+
+const updateUserRole = async (userId: string, data: UpdateRoleInput) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  
   if (!user) {
     throw new AppError("User not found", 404);
   }
 
-  return user;
+  // If promoting to HOST, ensure a host profile exists
+  let hostProfile = await prisma.host.findUnique({ where: { userId } });
+
+  if (data.role === UserRole.HOST && !hostProfile) {
+    hostProfile = await prisma.host.create({
+      data: { userId, businessName: null, nidNumber: null },
+    });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      role: data.role as UserRole,
+    },
+  });
+
+  return { user: updated, hostProfile };
 };
-
-// const updateUserStatus = async (userId: string, data: UpdateStatusInput) => {
-//   const user = await prisma.user.findUnique({ where: { id: userId } });
-//   if (!user) {
-//     throw new AppError("User not found", 404);
-//   }
-
-//   const updated = await prisma.user.update({
-//     where: { id: userId },
-//     data: {
-//       status: data.status,
-//     },
-//   });
-
-//   return updated;
-// };
-
-// const updateUserRole = async (userId: string, data: UpdateRoleInput) => {
-//   const user = await prisma.user.findUnique({ where: { id: userId } });
-//   if (!user) {
-//     throw new AppError("User not found", 404);
-//   }
-
-//   // If promoting to HOST, ensure a host profile exists
-//   let hostProfile = await prisma.host.findUnique({ where: { userId } });
-
-//   if (data.role === UserRole.HOST && !hostProfile) {
-//     hostProfile = await prisma.host.create({
-//       data: { userId, businessName: null, nidNumber: null },
-//     });
-//   }
-
-//   const updated = await prisma.user.update({
-//     where: { id: userId },
-//     data: {
-//       role: data.role as UserRole,
-//     },
-//   });
-
-//   return { user: updated, hostProfile };
-// };
 
 // const deleteUser = async (userId: string) => {
 //   const user = await prisma.user.findUnique({
@@ -229,7 +231,7 @@ export const UserService = {
     deleteAccount,
     getUsers,
     getUserById,
-    //   updateUserStatus,
-    //   updateUserRole,
+    updateUserStatus,
+      updateUserRole,
     //   deleteUser,
 };
