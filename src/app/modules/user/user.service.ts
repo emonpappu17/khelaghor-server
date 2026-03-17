@@ -178,52 +178,52 @@ const updateUserStatus = async (userId: string, data: UpdateStatusInput) => {
 };
 
 const updateUserRole = async (userId: string, data: UpdateRoleInput) => {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
 
-  // If promoting to HOST, ensure a host profile exists
-  let hostProfile = await prisma.host.findUnique({ where: { userId } });
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
 
-  if (data.role === UserRole.HOST && !hostProfile) {
-    hostProfile = await prisma.host.create({
-      data: { userId, businessName: null, nidNumber: null },
+    // If promoting to HOST, ensure a host profile exists
+    let hostProfile = await prisma.host.findUnique({ where: { userId } });
+
+    if (data.role === UserRole.HOST && !hostProfile) {
+        hostProfile = await prisma.host.create({
+            data: { userId, businessName: null, nidNumber: null },
+        });
+    }
+
+    const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+            role: data.role as UserRole,
+        },
     });
-  }
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      role: data.role as UserRole,
-    },
-  });
-
-  return { user: updated, hostProfile };
+    return { user: updated, hostProfile };
 };
 
-// const deleteUser = async (userId: string) => {
-//   const user = await prisma.user.findUnique({
-//     where: { id: userId },
-//     select: { id: true, isDeleted: true },
-//   });
+const deleteUser = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, isDeleted: true },
+    });
 
-//   if (!user) {
-//     throw new AppError("User not found", 404);
-//   }
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
 
-//   if (user.isDeleted) {
-//     throw new AppError("User account already deleted", 400);
-//   }
+    if (user.isDeleted) {
+        throw new AppError("User account already deleted", 400);
+    }
 
-//   await prisma.user.update({
-//     where: { id: userId },
-//     data: { isDeleted: true },
-//   });
+    await prisma.user.update({
+        where: { id: userId },
+        data: { isDeleted: true },
+    });
 
-//   return { message: "User deleted successfully" };
-// };
+    return { message: "User deleted successfully" };
+};
 
 export const UserService = {
     getProfile,
@@ -232,6 +232,6 @@ export const UserService = {
     getUsers,
     getUserById,
     updateUserStatus,
-      updateUserRole,
-    //   deleteUser,
+    updateUserRole,
+    deleteUser,
 };

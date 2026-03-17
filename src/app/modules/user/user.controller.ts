@@ -96,17 +96,17 @@ const updateUserRole = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-// const deleteUser = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.params.id;
-//   const result = await UserService.deleteUser(userId);
+const deleteUser = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.params.id;
+    const result = await UserService.deleteUser(userId as string);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "User deleted successfully",
-//     data: result,
-//   });
-// });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "User deleted successfully",
+        data: result,
+    });
+});
 
 export const UserController = {
     getMe,
@@ -116,5 +116,5 @@ export const UserController = {
     getUser,
     updateUserStatus,
     updateUserRole,
-    //   deleteUser,
+    deleteUser,
 };
