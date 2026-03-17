@@ -58,17 +58,17 @@ const listUsers = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-// const getUser = catchAsync(async (req: Request, res: Response) => {
-//   const userId = req.params.id;
-//   const user = await UserService.getUserById(userId);
+const getUser = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.params.id;
+    const user = await UserService.getUserById(userId as string);
 
-//   sendResponse(res, {
-//     statusCode: 200,
-//     success: true,
-//     message: "User fetched successfully",
-//     data: user,
-//   });
-// });
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "User fetched successfully",
+        data: user,
+    });
+});
 
 // const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
 //   const userId = req.params.id;
@@ -113,7 +113,7 @@ export const UserController = {
     updateMe,
     deleteMe,
     listUsers,
-    //   getUser,
+    getUser,
     //   updateUserStatus,
     //   updateUserRole,
     //   deleteUser,
