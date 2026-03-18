@@ -2,6 +2,8 @@ import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { UserRole } from "../../../generated/prisma/enums";
 import type { ApplyHostInput, UpdateHostInput } from "./host.validation";
+import { TPaginationOptions } from "../../types/pagination";
+import { calculatePagination } from "../../utils/calculatePagination";
 
 const applyHost = async (userId: string, data: ApplyHostInput) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -83,15 +85,16 @@ const updateHost = async (userId: string, data: UpdateHostInput) => {
   return updated;
 };
 
-const listHosts = async (options: { page?: number; limit?: number; isApproved?: boolean }) => {
-  const page = options.page && options.page > 0 ? options.page : 1;
-  const limit = options.limit && options.limit > 0 ? options.limit : 20;
-  const skip = (page - 1) * limit;
+const listHosts = async (
+  filters: { isApproved?: string },
+  options: TPaginationOptions
+) => {
+  const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
 
   const where: any = {};
 
-  if (typeof options.isApproved === "boolean") {
-    where.isApproved = options.isApproved;
+  if (filters.isApproved !== undefined) {
+    where.isApproved = filters.isApproved === "true";
   }
 
   const [total, hosts] = await prisma.$transaction([
@@ -100,7 +103,7 @@ const listHosts = async (options: { page?: number; limit?: number; isApproved?: 
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { [sortBy]: sortOrder },
       include: {
         user: {
           select: {
@@ -115,8 +118,9 @@ const listHosts = async (options: { page?: number; limit?: number; isApproved?: 
     }),
   ]);
 
-  return { hosts, total };
+  return { hosts, total, page, limit };
 };
+
 
 const getHostById = async (id: string) => {
   const host = await prisma.host.findUnique({

@@ -19,7 +19,7 @@ router.patch(
 
 router.delete("/me", checkAuth(), UserController.deleteMe);
 
-// // admin-only endpoints
+// admin-only endpoints
 router.get(
     "/",
     checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),

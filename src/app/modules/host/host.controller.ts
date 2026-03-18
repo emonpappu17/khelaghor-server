@@ -3,6 +3,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { HostService } from "./host.service";
 import type { ApplyHostInput, UpdateHostInput } from "./host.validation";
+import pick from "../../utils/pick";
 
 const apply = catchAsync(async (req: Request, res: Response) => {
     const userId = req.authUser.userId;
@@ -44,11 +45,10 @@ const updateMine = catchAsync(async (req: Request, res: Response) => {
 });
 
 const listHosts = catchAsync(async (req: Request, res: Response) => {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
-    const isApproved = req.query.isApproved !== undefined ? req.query.isApproved === "true" : undefined;
+    const filters = pick(req.query, ["isApproved"]);
+    const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
-    const { hosts, total } = await HostService.listHosts({ page, limit, isApproved });
+    const { hosts, total, page, limit } = await HostService.listHosts(filters, options);
 
     sendResponse(res, {
         statusCode: 200,
@@ -58,6 +58,7 @@ const listHosts = catchAsync(async (req: Request, res: Response) => {
         data: hosts,
     });
 });
+
 
 const getHost = catchAsync(async (req: Request, res: Response) => {
     const hostId = req.params.id;
