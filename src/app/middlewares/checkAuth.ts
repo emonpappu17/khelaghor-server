@@ -44,7 +44,7 @@ export const checkAuth =
                     throw new AppError("Forbidden access", 403);
                 }
 
-                req.user = {
+                req.authUser = {
                     userId: user.id,
                     email: user.email,
                     role: user.role,
