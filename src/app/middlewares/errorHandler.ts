@@ -4,6 +4,7 @@ import { AppError } from "../errors/AppError";
 import { handleZodError } from "../errors/handleZodError";
 import { handlePrismaError } from "../errors/handlePrismaError";
 import { handleJwtError } from "../errors/handleJwtError";
+import multer from "multer";
 
 export const errorHandler: ErrorRequestHandler = (
     err,
@@ -14,6 +15,7 @@ export const errorHandler: ErrorRequestHandler = (
     let statusCode = 500;
     let message = "Internal Server Error";
     let errors;
+
 
     // Prisma
     const prismaError = handlePrismaError(err);
@@ -37,6 +39,20 @@ export const errorHandler: ErrorRequestHandler = (
             statusCode = formatted.statusCode;
             message = formatted.message;
             errors = formatted.errors;
+        }
+
+
+        else if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                message = 'File too large. Maximum size is 5MB.'
+            }
+            if (err.code === 'LIMIT_FILE_COUNT') {
+                message = 'Too many files. Maximum 10 files allowed.'
+            }
+        }
+
+        else if (err.message === 'Only image files are allowed!') {
+            message = err.message
         }
 
         // AppError

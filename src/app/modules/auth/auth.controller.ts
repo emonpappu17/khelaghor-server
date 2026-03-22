@@ -61,7 +61,7 @@ const getNewAccessToken = catchAsync(async (req: Request, res: Response) => {
 
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
-    const user = req.user;
+    const user = req.authUser;
     const result = await AuthService.changePassword(user as TJwtPayload, req?.body as ChangePasswordInput);
 
     sendResponse(res, {
@@ -97,9 +97,9 @@ const verifyForgotPasswordOtp = catchAsync(async (req: Request, res: Response) =
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
     const resetToken = req?.headers.authorization;
-    req.user = verifyResetToken(resetToken as string) as TJwtPayload;
+    req.authUser = verifyResetToken(resetToken as string) as TJwtPayload;
 
-    const result = await AuthService.resetPassword(req.body as ResetPasswordInput, (req.user as TJwtPayload).userId);
+    const result = await AuthService.resetPassword(req.body as ResetPasswordInput, (req.authUser as TJwtPayload).userId);
 
     sendResponse(res, {
         statusCode: 200,
@@ -123,8 +123,8 @@ const logout = catchAsync(async (req: Request, res: Response) => {
     });
 
     // 🔄 Invalidate refresh token in Redis
-    if (req.user) {
-        await redisClient.del(`${REFRESH_PREFIX}${(req.user as TJwtPayload).userId}`);
+    if (req.authUser) {
+        await redisClient.del(`${REFRESH_PREFIX}${(req.authUser as TJwtPayload).userId}`);
     }
 
     sendResponse(res, {
