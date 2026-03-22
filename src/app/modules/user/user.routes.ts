@@ -4,6 +4,7 @@ import validateRequest from "../../middlewares/validateRequest";
 import { UserController } from "./user.controller";
 import { UserValidation } from "./user.validation";
 import { UserRole } from "../../../generated/prisma/enums";
+import { uploadSingle } from "../../middlewares/upload";
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.get("/me", checkAuth(), UserController.getMe);
 router.patch(
     "/me",
     checkAuth(),
+    uploadSingle,
     validateRequest(UserValidation.updateProfileSchema),
     UserController.updateMe
 );

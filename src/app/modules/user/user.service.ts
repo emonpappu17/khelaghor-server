@@ -4,6 +4,7 @@ import { UserRole } from "../../../generated/prisma/enums";
 import type { UpdateProfileInput, UpdateRoleInput, UpdateStatusInput } from "./user.validation";
 import { TPaginationOptions } from "../../types/pagination";
 import { calculatePagination } from "../../utils/calculatePagination";
+import { deleteImage, extractPublicId, uploadSingleImage } from "../../config/cloudinary";
 
 const getProfile = async (userId: string) => {
     const user = await prisma.user.findUnique({
@@ -40,27 +41,51 @@ const getProfile = async (userId: string) => {
     return user;
 };
 
-const updateProfile = async (userId: string, data: UpdateProfileInput) => {
+const updateProfile = async (
+    userId: string,
+    data: UpdateProfileInput,
+    file?: Express.Multer.File
+) => {
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true },
+        select: { id: true, avatar: true },
     });
 
-    if (!user) {
-        throw new AppError("User not found", 404);
+    if (!user) throw new AppError("User not found", 404);
+
+    let avatarUrl = user.avatar;
+    let newPublicId: string | null = null;
+
+    // Upload new avatar if provided
+    if (file) {
+        const { secure_url, public_id } = await uploadSingleImage(file);
+        avatarUrl = secure_url;
+        newPublicId = public_id;
     }
 
-    const updated = await prisma.user.update({
+    // Update user profile
+    const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
             name: data.name,
             phone: data.phone,
-            avatar: data.avatar,
+            avatar: avatarUrl,
         },
     });
 
-    return updated;
+    // Delete old avatar if replaced
+    if (file && user.avatar) {
+        const oldPublicId = extractPublicId(user.avatar);
+        if (oldPublicId && oldPublicId !== newPublicId) {
+            await deleteImage(oldPublicId).catch(err =>
+                console.error("Failed to delete old avatar:", err)
+            );
+        }
+    }
+
+    return updatedUser;
 };
+
 
 const deleteAccount = async (userId: string) => {
     const user = await prisma.user.findUnique({
@@ -124,7 +149,6 @@ const getUsers = async (
     return { users, total, page, limit };
 };
 
-
 const getUserById = async (id: string) => {
     const user = await prisma.user.findUnique({
         where: { id },
@@ -184,7 +208,6 @@ const updateUserRole = async (userId: string, data: UpdateRoleInput) => {
         throw new AppError("User not found", 404);
     }
 
-    // If promoting to HOST, ensure a host profile exists
     let hostProfile = await prisma.host.findUnique({ where: { userId } });
 
     if (data.role === UserRole.HOST && !hostProfile) {

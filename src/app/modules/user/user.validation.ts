@@ -3,7 +3,7 @@ import { z } from "zod";
 const updateProfileSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters").optional(),
     phone: z.string().optional(),
-    avatar: z.string().optional(),
+    // avatar: z.string().optional(),
     // nid_number: z
     //     .string()
     //     .length(10, "NID must be exactly 10 characters")

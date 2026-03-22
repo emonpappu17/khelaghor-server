@@ -19,9 +19,10 @@ const getMe = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateMe = catchAsync(async (req: Request, res: Response) => {
-    const userId = req.authUser.userId;
+    const userId = (req.authUser as TJwtPayload).userId;
     const payload = req.body as UpdateProfileInput;
-    const user = await UserService.updateProfile(userId, payload);
+    const file = req.file as Express.Multer.File | undefined;
+    const user = await UserService.updateProfile(userId, payload, file);
 
     sendResponse(res, {
         statusCode: 200,
