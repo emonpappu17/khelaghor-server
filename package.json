@@ -42,6 +42,8 @@
     "@prisma/client": "^7.4.2",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "axios": "^1.13.6",
+    "barikoiapis": "^1.0.8",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
