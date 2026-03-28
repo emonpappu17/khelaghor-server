@@ -18,7 +18,7 @@ const autocomplete = async (query: string) => {
       params: {
         api_key: API_KEY,
         q: query,
-        sub_area: true,
+        // sub_area: true,
       },
     });
 

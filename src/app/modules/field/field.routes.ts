@@ -1,67 +1,33 @@
 import { Router } from "express";
-import axios from "axios";
-import { env } from "../../config/env";
+import { checkAuth } from "../../middlewares/checkAuth";
+import validateRequest from "../../middlewares/validateRequest";
+import { FieldController } from "./field.controller";
+import { FieldValidation } from "./field.validation";
+import { UserRole } from "../../../generated/prisma/enums";
 
 const router = Router();
 
-const API_KEY = env.BARIKOI_API_KEY;
+// Public field endpoints
+router.get("/", FieldController.listFields);
+router.get("/:id", FieldController.getField);
 
-router.get("/autocomplete", async (req, res) => {
-    const query = req.query.q as string;
+// Host/admin endpoints
+const hostRoles = [UserRole.HOST, UserRole.ADMIN, UserRole.SUPER_ADMIN];
 
-    if (!query || query.length < 3) {
-        return res.json({ places: [] });
-    }
+router.post(
+  "/",
+  checkAuth(UserRole.HOST),
+  validateRequest(FieldValidation.createFieldSchema),
+  FieldController.createField
+);
 
-    try {
-        const response = await axios.get(
-            "https://barikoi.xyz/v2/api/search/autocomplete/place",
-            {
-                params: {
-                    api_key: API_KEY,
-                    q: query,
-                    // city: "dhaka",          // optional filter
-                    sub_area: true,         // optional
-                    // sub_district: true,     // optional
-                },
-            }
-        );
+router.patch(
+  "/:id",
+  checkAuth(...hostRoles),
+  validateRequest(FieldValidation.updateFieldSchema),
+  FieldController.updateField
+);
 
-        res.json(response.data);
-    } catch (error: any) {
-        console.error("Barikoi API error:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to fetch autocomplete" });
-    }
-});
-
-// Reverse geocode route
-router.get("/reverse-geocode", async (req, res) => {
-    const { latitude, longitude } = req.query;
-
-    if (!latitude || !longitude) {
-        return res.status(400).json({ error: "latitude and longitude are required" });
-    }
-
-    try {
-        const response = await axios.get(
-            "https://barikoi.xyz/v2/api/search/reverse/geocode",
-            {
-                params: {
-                    api_key: API_KEY,
-                    latitude,
-                    longitude,
-                    address: true,
-                    division: true,
-                    district: true,
-                    area: true,
-                },
-            }
-        );
-        res.json(response.data);
-    } catch (error: any) {
-        console.error("Barikoi Reverse Geocode error:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to fetch reverse geocode" });
-    }
-});
+router.delete("/:id", checkAuth(...hostRoles), FieldController.removeField);
 
 export const FieldRoutes = router;
