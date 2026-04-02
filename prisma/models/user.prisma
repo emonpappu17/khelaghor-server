@@ -27,14 +27,17 @@ model Auth {
 }
 
 model Host {
-  id           String    @id @default(uuid())
-  userId       String    @unique
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String  @id @default(uuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessName String?
   nidNumber    String?
-  isApproved   Boolean   @default(false)
-  approvedAt   DateTime?
-  createdAt    DateTime  @default(now())
+  isApproved   Boolean @default(false)
+
+  field Field?
+
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
 }
 
 enum AuthProvider {
