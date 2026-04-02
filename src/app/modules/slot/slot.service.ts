@@ -1,116 +1,21 @@
+import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from "date-fns";
+import { SlotStatus } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
-import { SlotStatus } from "../../../generated/prisma/enums";
-import type {
-    CreateSlotInput,
-    BulkCreateSlotsInput,
-    UpdateSlotInput,
-    SlotQueryInput,
-} from "./slot.validation";
-
-const parseDate = (value: string): Date => {
-    const normalized = value.trim();
-    let date: Date;
-
-    if (normalized.includes("/")) {
-        const [month, day, year] = normalized.split("/").map((part) => Number(part));
-
-        if (
-            Number.isNaN(month) ||
-            Number.isNaN(day) ||
-            Number.isNaN(year) ||
-            month < 1 ||
-            month > 12 ||
-            day < 1 ||
-            day > 31
-        ) {
-            throw new AppError(`Invalid date format: ${value}`, 400);
-        }
-
-        date = new Date(year, month - 1, day);
-
-        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-            throw new AppError(`Invalid date value: ${value}`, 400);
-        }
-    } else {
-        date = new Date(normalized);
-        if (Number.isNaN(date.getTime())) {
-            throw new AppError(`Invalid date format: ${value}`, 400);
-        }
-    }
-
-    date.setHours(0, 0, 0, 0);
-    return date;
-};
-
-const formatDateKey = (date: Date) => {
-    const d = new Date(date);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-};
-
-const parseTime = (value: string): number => {
-    const parts = value.trim().split(":");
-    if (parts.length !== 2) throw new AppError(`Invalid time format: ${value}`, 400);
-
-    const [hh, mm] = parts.map((i) => Number(i));
-
-    if (
-        Number.isNaN(hh) ||
-        Number.isNaN(mm) ||
-        hh < 0 ||
-        hh > 23 ||
-        mm < 0 ||
-        mm > 59
-    ) {
-        throw new AppError(`Invalid time value: ${value}`, 400);
-    }
-
-    return hh * 60 + mm;
-};
-
-const formatTime = (minutes: number): string => {
-    const hh = Math.floor(minutes / 60);
-    const mm = minutes % 60;
-    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-};
-
-const validateAndNormalizeSlot = (input: CreateSlotInput) => {
-    const date = parseDate(input.date);
-    const start = parseTime(input.startTime);
-    const end = parseTime(input.endTime);
-
-    if (end <= start) {
-        throw new AppError("Slot endTime must be later than startTime", 400);
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (date.getTime() < today.getTime()) {
-        throw new AppError("Slot date must be in the future", 400);
-    }
-
-    return {
-        date: formatDateKey(date),
-        startTime: formatTime(start),
-        endTime: formatTime(end),
-        pricePerSlot: input.pricePerSlot,
-    };
-};
+import { minutesToTime, parseDate, timeToMinutes } from "../../utils/parseTime";
+import type { CreateSlotsInput, UpdateSlotInput } from "./slot.validation";
 
 const ensureHostField = async (userId: string, fieldId: string) => {
     const field = await prisma.field.findUnique({ where: { id: fieldId } });
 
-    if (!field) throw new AppError("Field not found", 404);
+    if (!field) {
+        throw new AppError("Field not found", 404);
+    }
 
-    if (field.hostId !== userId) {
-        const host = await prisma.host.findUnique({ where: { id: field.hostId } });
-        if (!host || host.userId !== userId) {
-            throw new AppError("Forbidden: not your field", 403);
-        }
+    // Check if user owns the field
+    const host = await prisma.host.findUnique({ where: { id: field.hostId } });
+    if (!host || host.userId !== userId) {
+        throw new AppError("You don't have permission to modify this field", 403);
     }
 
     if (field.status === "SUSPENDED") {
@@ -120,130 +25,147 @@ const ensureHostField = async (userId: string, fieldId: string) => {
     return field;
 };
 
-const ensureNoOverlap = async (
+const ensureNoOverlapWithinRange = async (
     fieldId: string,
-    slotsData: Array<{ date: string; startTime: string; endTime: string }>,
-    tx = prisma,
+    slotsToCreate: Array<{
+        date: Date;
+        startTime: string;
+        endTime: string;
+    }>,
     excludeSlotId?: string
 ) => {
-    if (!slotsData.length) return;
+    if (slotsToCreate.length === 0) return;
 
-    const dates = [...new Set(slotsData.map((s) => s.date))];
+    // Get unique dates in yyyy-MM-dd format
+    const uniqueDates = [...new Set(slotsToCreate.map((s) => format(s.date, "yyyy-MM-dd")))];
 
-    const existingSlots = await tx.slot.findMany({
+    // Convert back to Date objects for Prisma query
+    const parsedDates = uniqueDates.map((d) => parseISO(d));
+
+    // Fetch existing slots for those dates
+    const existingSlots = await prisma.slot.findMany({
         where: {
             fieldId,
-            date: { in: dates },
-            ...(excludeSlotId ? { id: { not: excludeSlotId } } : {}),
+            date: { in: parsedDates },
+            ...(excludeSlotId && { id: { not: excludeSlotId } }),
         },
     });
 
-    for (const candidate of slotsData) {
-        const candidateStart = parseTime(candidate.startTime);
-        const candidateEnd = parseTime(candidate.endTime);
+    // Check overlaps
+    for (const candidate of slotsToCreate) {
+        const candidateStart = timeToMinutes(candidate.startTime);
+        const candidateEnd = timeToMinutes(candidate.endTime);
+        const candidateDateStr = format(candidate.date, "yyyy-MM-dd");
 
         for (const existing of existingSlots) {
-            if (existing.date.toISOString().slice(0, 10) !== candidate.date) continue;
-            const existingStart = parseTime(existing.startTime);
-            const existingEnd = parseTime(existing.endTime);
+            const existingDateStr = format(existing.date, "yyyy-MM-dd");
 
+            // Only compare slots on the same date
+            if (existingDateStr !== candidateDateStr) continue;
+
+            const existingStart = timeToMinutes(existing.startTime);
+            const existingEnd = timeToMinutes(existing.endTime);
+
+            // Overlap check: [a, b) overlaps [c, d) if a < d && c < b
             if (candidateStart < existingEnd && existingStart < candidateEnd) {
-                throw new AppError("One or more slots overlap with existing slots", 409);
+                throw new AppError(
+                    `Slot conflicts with existing slot on ${candidateDateStr} from ${existing.startTime} to ${existing.endTime}`,
+                    409
+                );
             }
         }
     }
 };
 
-const createSlot = async (userId: string, fieldId: string, data: CreateSlotInput) => {
-    const field = await ensureHostField(userId, fieldId);
-    const slot = validateAndNormalizeSlot(data);
+const createSlots = async (
+    userId: string,
+    fieldId: string,
+    data: CreateSlotsInput
+) => {
+    // Verify field ownership and status
+    await ensureHostField(userId, fieldId);
 
-    return await prisma.$transaction(
-        async (tx) => {
-            await ensureNoOverlap(field.id, [slot], tx);
+    const startDate = parseDate(data.startDate);
+    const endDate = parseDate(data.endDate);
+    const startTimeMinutes = timeToMinutes(data.startTime);
+    const endTimeMinutes = timeToMinutes(data.endTime);
 
-            try {
-                const created = await tx.slot.create({
-                    data: {
-                        fieldId: field.id,
-                        date: new Date(slot.date),
-                        startTime: slot.startTime,
-                        endTime: slot.endTime,
-                        pricePerSlot: slot.pricePerSlot,
-                    },
-                });
-
-                return created;
-            } catch (error: any) {
-                if (error?.code === "P2002") {
-                    throw new AppError("Slot already exists for this date and start time", 409);
-                }
-                throw error;
-            }
-        },
-        { isolationLevel: "Serializable" }
-    );
-};
-
-const bulkCreateSlots = async (userId: string, fieldId: string, data: BulkCreateSlotsInput) => {
-    const field = await ensureHostField(userId, fieldId);
-
-    const minDate = parseDate(data.dateFrom);
-    const maxDate = parseDate(data.dateTo);
-
-    if (maxDate.getTime() < minDate.getTime()) {
-        throw new AppError("dateTo must be equal or later than dateFrom", 400);
+    // Edge case: end time must be after start time
+    if (endTimeMinutes <= startTimeMinutes) {
+        throw new AppError("End time must be after start time", 400);
     }
 
-    if (minDate.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime()) {
-        throw new AppError("Date range must start in the future", 400);
+    // Edge case: date range must be future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isBefore(startDate, startOfDay(new Date()))) {
+        throw new AppError("Start date must be in the future", 400);
     }
 
-    let slotsToCreate: Array<{ date: string; startTime: string; endTime: string; pricePerSlot: number }> = [];
+    // Edge case: end date must be >= start date
+    if (isBefore(endDate, startDate)) {
+        throw new AppError("End date must be greater than or equal to start date", 400);
+    }
 
-    if (data.customSlots && data.customSlots.length > 0) {
-        slotsToCreate = data.customSlots.map((slot) => ({
-            ...validateAndNormalizeSlot(slot),
-            pricePerSlot: slot.pricePerSlot,
-        }));
-    } else {
-        const dayCount = Math.floor((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
-        const slotDuration = data.slotDurationMinutes;
-        const rawStart = parseTime(data.startTime);
-        const rawEnd = parseTime(data.endTime);
+    // Edge case: slot duration must fit in time range
+    const duration = data.slotDurationMinutes;
+    const totalTimeAvailable = endTimeMinutes - startTimeMinutes;
+    if (duration > totalTimeAvailable) {
+        throw new AppError(
+            `Slot duration (${duration}min) exceeds available time range (${totalTimeAvailable}min)`,
+            400
+        );
+    }
 
-        if (rawEnd <= rawStart) {
-            throw new AppError("endTime must be later than startTime", 400);
-        }
+    // Edge case: generate no slots if time range is too small
+    if (totalTimeAvailable < duration) {
+        throw new AppError(
+            `No slots can fit in the time range with ${duration}min duration`,
+            400
+        );
+    }
 
-        for (let day = 0; day <= dayCount; day++) {
-            const current = new Date(minDate.getTime() + day * 24 * 60 * 60 * 1000);
-            const dateKey = formatDateKey(current);
+    // Generate all slots
+    const slotsToCreate: Array<{
+        date: Date;
+        startTime: string;
+        endTime: string;
+        pricePerSlot: number;
+    }> = [];
 
-            for (let t = rawStart; t + slotDuration <= rawEnd; t += slotDuration) {
-                slotsToCreate.push({
-                    date: dateKey,
-                    startTime: formatTime(t),
-                    endTime: formatTime(t + slotDuration),
-                    pricePerSlot: data.pricePerSlot,
-                });
-            }
+    // Iterate through each date
+    for (
+        let currentDate = startDate; !isAfter(currentDate, endDate); currentDate = addDays(currentDate, 1)
+    ) {
+        // Iterate through each time slot on this date
+        for (let slotStart = startTimeMinutes; slotStart + duration <= endTimeMinutes; slotStart += duration) {
+            const slotEnd = slotStart + duration;
+
+            slotsToCreate.push({
+                date: new Date(currentDate), // Create new date object to avoid reference issues
+                startTime: minutesToTime(slotStart),
+                endTime: minutesToTime(slotEnd),
+                pricePerSlot: data.pricePerSlot,
+            });
         }
     }
 
-    if (!slotsToCreate.length) {
-        throw new AppError("No slots generated. Check the time range and duration.", 400);
+    if (slotsToCreate.length === 0) {
+        throw new AppError("No slots could be generated with the provided parameters", 400);
     }
 
+    // Use Serializable transaction to prevent race conditions
     return await prisma.$transaction(
         async (tx) => {
-            await ensureNoOverlap(field.id, slotsToCreate, tx);
+            // Check for overlaps
+            await ensureNoOverlapWithinRange(fieldId, slotsToCreate);
 
             try {
-                const created = await tx.slot.createMany({
+                // Create slots
+                const result = await tx.slot.createMany({
                     data: slotsToCreate.map((slot) => ({
-                        fieldId: field.id,
-                        date: new Date(slot.date),
+                        fieldId,
+                        date: slot.date,
                         startTime: slot.startTime,
                         endTime: slot.endTime,
                         pricePerSlot: slot.pricePerSlot,
@@ -251,10 +173,19 @@ const bulkCreateSlots = async (userId: string, fieldId: string, data: BulkCreate
                     skipDuplicates: false,
                 });
 
-                return { created: created.count, slots: slotsToCreate.length };
+                return {
+                    success: true,
+                    message: `${result.count} slots created successfully`,
+                    count: result.count,
+                    totalGenerated: slotsToCreate.length,
+                };
             } catch (error: any) {
+                // Edge case: Handle unique constraint violation
                 if (error?.code === "P2002") {
-                    throw new AppError("One or more slots already exist (unique constraint).", 409);
+                    throw new AppError(
+                        "One or more slots already exist at these times. Please check and try again.",
+                        409
+                    );
                 }
                 throw error;
             }
@@ -263,19 +194,17 @@ const bulkCreateSlots = async (userId: string, fieldId: string, data: BulkCreate
     );
 };
 
-const getSlots = async (fieldId: string, query: SlotQueryInput) => {
+const getSlots = async (fieldId: string, query?: { status?: string }) => {
+    const field = await prisma.field.findUnique({ where: { id: fieldId } });
+    if (!field) {
+        throw new AppError("Field not found", 404);
+    }
+
     const where: any = { fieldId };
-
-    if (query.status) where.status = query.status;
-
-    if (query.dateFrom || query.dateTo) {
-        where.date = {};
-
-        if (query.dateFrom) {
-            where.date.gte = parseDate(query.dateFrom);
-        }
-        if (query.dateTo) {
-            where.date.lte = parseDate(query.dateTo);
+    if (query?.status) {
+        const validStatuses = Object.values(SlotStatus);
+        if (validStatuses.includes(query.status as SlotStatus)) {
+            where.status = query.status as SlotStatus;
         }
     }
 
@@ -293,75 +222,75 @@ const updateSlot = async (
     slotId: string,
     data: UpdateSlotInput
 ) => {
+    // Verify field ownership
     await ensureHostField(userId, fieldId);
 
-    const existingSlot = await prisma.slot.findUnique({ where: { id: slotId } });
-    if (!existingSlot) throw new AppError("Slot not found", 404);
-    if (existingSlot.fieldId !== fieldId) throw new AppError("Slot does not belong to the field", 400);
-
-    const updateData: any = {};
-
-    if (data.date) {
-        updateData.date = new Date(formatDateKey(parseDate(data.date)));
-    }
-    if (data.startTime) {
-        updateData.startTime = formatTime(parseTime(data.startTime));
-    }
-    if (data.endTime) {
-        updateData.endTime = formatTime(parseTime(data.endTime));
+    // Get existing slot
+    const slot = await prisma.slot.findUnique({ where: { id: slotId } });
+    if (!slot) {
+        throw new AppError("Slot not found", 404);
     }
 
-    if (updateData.startTime || updateData.endTime) {
-        const startTime = updateData.startTime ?? existingSlot.startTime;
-        const endTime = updateData.endTime ?? existingSlot.endTime;
-
-        if (parseTime(startTime) >= parseTime(endTime)) {
-            throw new AppError("Updated time window is invalid", 400);
-        }
-
-        const candidateDate = updateData.date ? formatDateKey(updateData.date) : existingSlot.date.toISOString().slice(0, 10);
-
-        await ensureNoOverlap(
-            fieldId,
-            [
-                {
-                    date: candidateDate,
-                    startTime,
-                    endTime,
-                },
-            ],
-            prisma,
-            slotId
-        );
+    // Edge case: slot must belong to this field
+    if (slot.fieldId !== fieldId) {
+        throw new AppError("Slot does not belong to this field", 400);
     }
+
+    // Edge case: prevent certain status transitions
+    // (e.g., you might not want to unbook a slot unless admin)
+    const updatePayload: any = {};
 
     if (data.pricePerSlot !== undefined) {
-        updateData.pricePerSlot = data.pricePerSlot;
-    }
-    if (data.status !== undefined) {
-        updateData.status = data.status;
+        updatePayload.pricePerSlot = data.pricePerSlot;
     }
 
-    const updated = await prisma.slot.update({ where: { id: slotId }, data: updateData });
+    if (data.status !== undefined) {
+        // Optional: add business rule - prevent changing status of booked slots
+        if (slot.status === SlotStatus.BOOKED && data.status !== SlotStatus.BOOKED) {
+            throw new AppError("Cannot change status of a booked slot", 403);
+        }
+        updatePayload.status = data.status;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+        throw new AppError("At least one field (price or status) must be provided", 400);
+    }
+
+    const updated = await prisma.slot.update({
+        where: { id: slotId },
+        data: updatePayload,
+    });
 
     return updated;
 };
 
 const deleteSlot = async (userId: string, fieldId: string, slotId: string) => {
+
     await ensureHostField(userId, fieldId);
 
     const slot = await prisma.slot.findUnique({ where: { id: slotId } });
-    if (!slot) throw new AppError("Slot not found", 404);
-    if (slot.fieldId !== fieldId) throw new AppError("Slot does not belong to this field", 400);
+    if (!slot) {
+        throw new AppError("Slot not found", 404);
+    }
+
+    if (slot.fieldId !== fieldId) {
+        throw new AppError("Slot does not belong to this field", 400);
+    }
+
+    if (slot.status === SlotStatus.BOOKED) {
+        throw new AppError("Cannot delete a booked slot", 403);
+    }
 
     await prisma.slot.delete({ where: { id: slotId } });
 
-    return { message: "Slot deleted successfully" };
+    return {
+        success: true,
+        message: "Slot deleted successfully",
+    };
 };
 
 export const SlotService = {
-    createSlot,
-    bulkCreateSlots,
+    createSlots,
     getSlots,
     updateSlot,
     deleteSlot,

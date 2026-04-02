@@ -9,31 +9,24 @@ const router = Router();
 
 const hostRoles = [UserRole.HOST, UserRole.ADMIN, UserRole.SUPER_ADMIN];
 
-router.get("/:fieldId/slots", SlotController.getSlots);
+router.get("/:fieldId", SlotController.getSlots);
 
 router.post(
-  "/:fieldId/slots",
+  "/:fieldId",
   checkAuth(...hostRoles),
-  validateRequest(SlotValidation.createSlotSchema),
-  SlotController.createSlot
-);
-
-router.post(
-  "/:fieldId/slots/bulk",
-  checkAuth(...hostRoles),
-  validateRequest(SlotValidation.bulkCreateSlotsSchema),
-  SlotController.bulkCreateSlots
+  validateRequest(SlotValidation.createSlotsSchema),
+  SlotController.createSlots
 );
 
 router.patch(
-  "/:fieldId/slots/:slotId",
+  "/:fieldId/:slotId",
   checkAuth(...hostRoles),
   validateRequest(SlotValidation.updateSlotSchema),
   SlotController.updateSlot
 );
 
 router.delete(
-  "/:fieldId/slots/:slotId",
+  "/:fieldId/:slotId",
   checkAuth(...hostRoles),
   SlotController.deleteSlot
 );

@@ -1,65 +1,70 @@
 import { z } from "zod";
 import { SlotStatus } from "../../../generated/prisma/enums";
 
-const dateSchema = z.string().min(1, "Date is required");
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format");
 
 const timeSchema = z
   .string()
   .regex(/^([01]?\d|2[0-3]):([0-5]\d)$/, "Time must be in HH:mm format");
 
-const createSlotSchema = z.object({
-  date: dateSchema,
-  startTime: timeSchema,
-  endTime: timeSchema,
-  pricePerSlot: z.number().positive("Price per slot must be a positive number"),
-});
+// Helper to convert time string to minutes
+const timeToMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+};
 
-const bulkCreateSlotsSchema = z.object({
-  dateFrom: dateSchema,
-  dateTo: dateSchema,
-  startTime: timeSchema,
-  endTime: timeSchema,
-  slotDurationMinutes: z
-    .number()
-    .int()
-    .min(15, "Slot duration must be at least 15 minutes")
-    .max(360, "Slot duration can be max 360 minutes")
-    .optional()
-    .default(60),
-  pricePerSlot: z.number().positive("Price per slot must be a positive number"),
-  customSlots: z.array(createSlotSchema).optional(),
-});
+// Validation for creating multiple slots with date/time range
+const createSlotsSchema = z
+  .object({
+    startDate: dateSchema,
+    endDate: dateSchema,
+    startTime: timeSchema,
+    endTime: timeSchema,
+    slotDurationMinutes: z
+      .number()
+      .int()
+      .min(15, "Slot duration must be at least 15 minutes")
+      .max(480, "Slot duration can be max 480 minutes (8 hours)")
+      .default(60),
+    pricePerSlot: z.number().positive("Price per slot must be a positive number"),
+  })
+  .refine(
+    (data) => {
+      const [sYear, sMonth, sDate] = data.startDate.split("-").map(Number);
+      const [eYear, eMonth, eDate] = data.endDate.split("-").map(Number);
+      const startDate = new Date(sYear, sMonth - 1, sDate);
+      const endDate = new Date(eYear, eMonth - 1, eDate);
+      return endDate >= startDate;
+    },
+    { message: "End date must be greater than or equal to start date", path: ["endDate"] }
+  )
+  .refine(
+    (data) => {
+      const startTime = timeToMinutes(data.startTime);
+      const endTime = timeToMinutes(data.endTime);
+      return endTime > startTime;
+    },
+    { message: "End time must be after start time", path: ["endTime"] }
+  );
 
-const updateSlotSchema = z.object({
-  date: dateSchema.optional(),
-  startTime: timeSchema.optional(),
-  endTime: timeSchema.optional(),
-  pricePerSlot: z.number().positive("Price per slot must be a positive number").optional(),
-  status: z
-    .nativeEnum(SlotStatus, {
-      errorMap: () => ({ message: "Invalid slot status" }),
-    })
-    .optional(),
-});
+// Validation for updating individual slot (only price and status)
+const updateSlotSchema = z
+  .object({
+    pricePerSlot: z.number().positive("Price per slot must be a positive number").optional(),
+    status: z.enum(SlotStatus).optional(),
+  })
+  .refine(
+    (data) => data.pricePerSlot !== undefined || data.status !== undefined,
+    { message: "At least one of pricePerSlot or status must be provided" }
+  );
 
-const slotQuerySchema = z.object({
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
-  status: z
-    .nativeEnum(SlotStatus, {
-      errorMap: () => ({ message: "Invalid slot status filter" }),
-    })
-    .optional(),
-});
-
-export type CreateSlotInput = z.infer<typeof createSlotSchema>;
-export type BulkCreateSlotsInput = z.infer<typeof bulkCreateSlotsSchema>;
+export type CreateSlotsInput = z.infer<typeof createSlotsSchema>;
 export type UpdateSlotInput = z.infer<typeof updateSlotSchema>;
-export type SlotQueryInput = z.infer<typeof slotQuerySchema>;
 
 export const SlotValidation = {
-  createSlotSchema,
-  bulkCreateSlotsSchema,
+  createSlotsSchema,
   updateSlotSchema,
-  slotQuerySchema,
+  timeToMinutes,
 };
