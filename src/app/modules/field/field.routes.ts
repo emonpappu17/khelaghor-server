@@ -4,6 +4,7 @@ import validateRequest from "../../middlewares/validateRequest";
 import { FieldController } from "./field.controller";
 import { FieldValidation } from "./field.validation";
 import { UserRole } from "../../../generated/prisma/enums";
+import { uploadMultiple } from "../../middlewares/upload";
 
 const router = Router();
 
@@ -17,6 +18,7 @@ const hostRoles = [UserRole.HOST, UserRole.ADMIN, UserRole.SUPER_ADMIN];
 router.post(
   "/",
   checkAuth(UserRole.HOST),
+  uploadMultiple,
   validateRequest(FieldValidation.createFieldSchema),
   FieldController.createField
 );
@@ -24,6 +26,7 @@ router.post(
 router.patch(
   "/:id",
   checkAuth(...hostRoles),
+  uploadMultiple,
   validateRequest(FieldValidation.updateFieldSchema),
   FieldController.updateField
 );

@@ -8,7 +8,8 @@ import pick from "../../utils/pick";
 const createField = catchAsync(async (req: Request, res: Response) => {
   const userId = req.authUser.userId;
   const payload = req.body as CreateFieldInput;
-  const field = await FieldService.createField(userId, payload);
+  const files = req.files as Express.Multer.File[] | undefined;
+  const field = await FieldService.createField(userId, payload, files);
 
   sendResponse(res, {
     statusCode: 201,
@@ -22,7 +23,8 @@ const updateField = catchAsync(async (req: Request, res: Response) => {
   const userId = req.authUser.userId;
   const fieldId = req.params.id;
   const payload = req.body as UpdateFieldInput;
-  const field = await FieldService.updateField(userId, fieldId as string, payload);
+  const files = req.files as Express.Multer.File[] | undefined;
+  const field = await FieldService.updateField(userId, fieldId as string, payload, files);
 
   sendResponse(res, {
     statusCode: 200,
