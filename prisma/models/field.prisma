@@ -1,0 +1,63 @@
+model Field {
+    id     String @id @default(uuid())
+    hostId String @unique
+    host   Host   @relation(fields: [hostId], references: [id])
+
+    name        String
+    sportType   SportType
+    description String
+    maxPlayers  Int       @default(10)
+
+    facilities String[]
+    images     String[]
+
+    division  String
+    district  String
+    address   String
+    area      String
+    latitude  Float
+    longitude Float
+
+    status FieldStatus @default(ACTIVE)
+
+    slots Slot[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Slot {
+    id      String @id @default(uuid())
+    fieldId String
+    field   Field  @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+    date         DateTime   @db.Date
+    startTime    String
+    endTime      String
+    pricePerSlot Float
+    status       SlotStatus @default(AVAILABLE)
+
+    createdAt DateTime @default(now())
+
+    @@unique([fieldId, date, startTime])
+}
+
+enum SportType {
+    FOOTBALL
+    CRICKET
+    BADMINTON
+    BASKETBALL
+    TENNIS
+}
+
+enum FieldStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+}
+
+enum SlotStatus {
+    AVAILABLE
+    BOOKED
+    BLOCKED
+}
