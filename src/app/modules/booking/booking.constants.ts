@@ -1,0 +1,5 @@
+export const PLATFORM_FEE_PERCENTAGE = 0.05;
+
+export const BOOKING_EXPIRY_MINUTES = 30;
+
+export const PARTIAL_PAYMENT_PERCENTAGE = 0.5;

@@ -5,6 +5,7 @@ import { HostRoutes } from "../modules/host/host.routes";
 import { FieldRoutes } from "../modules/field/field.routes";
 import { SlotRoutes } from "../modules/slot/slot.routes";
 import { MapRoutes } from "../modules/map/map.routes";
+import { BookingRoutes } from "../modules/booking/booking.routes";
 
 export const router = Router();
 
@@ -32,6 +33,10 @@ const moduleRoutes = [
   {
     path: "/map",
     route: MapRoutes,
+  },
+  {
+    path: "/bookings",
+    route: BookingRoutes,
   },
 ];
 
