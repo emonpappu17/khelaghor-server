@@ -23,6 +23,14 @@ export const createSSLCommerzSession = async (
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
+
+    // const { data } = await axios({
+    //     method: "POST",
+    //     url: url,
+    //     data: payload,
+    //     headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    // })
+
     if (data.status !== "SUCCESS") {
         throw new Error(
             `SSLCommerz session creation failed: ${data.faession || "Unknown error"}`

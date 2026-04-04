@@ -16,6 +16,7 @@ const createBooking = catchAsync(async (req: Request, res: Response) => {
         message: "Booking created. Please complete payment.",
         data: {
             booking: result.booking,
+            payment: result.payment,
             paymentUrl: result.paymentUrl,
         },
     });

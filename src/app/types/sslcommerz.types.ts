@@ -29,7 +29,7 @@ export type SSLCommerzSessionParams = {
 
 export type SSLCommerzSessionResponse = {
     status: string;
-    faession: string;
+    failedreason: string;
     sessionkey: string;
     GatewayPageURL: string;
     redirectGatewayURL: string;

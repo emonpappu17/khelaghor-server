@@ -1,5 +1,6 @@
 import { env } from "../../config/env";
 import { createSSLCommerzSession } from "../../config/sslcommerz";
+import { prisma } from "../../lib/prisma";
 import { SSLCommerzSessionParams } from "../../types/sslcommerz.types";
 import { SSLCOMMERZ_PRODUCT } from "./payment.constants";
 
@@ -41,15 +42,31 @@ const initSSLCommerzSession = async (
     };
 
     const sslResponse = await createSSLCommerzSession(params);
-
+    // console.log('sslResponse:==>', sslResponse);
     return {
         sessionKey: sslResponse.sessionkey,
         gatewayPageURL: sslResponse.GatewayPageURL,
     };
 };
 
+const handleSuccess = async (tranId: string) => {
+    const payment = await prisma.payment.findUnique({
+        where: { transactionId: tranId },
+    });
+
+    if (!payment) {
+        return {
+            redirectUrl: `${env.CLIENT_URL}/booking/error?message=Payment not found`,
+        };
+    }
+
+    return {
+        redirectUrl: `${env.CLIENT_URL}/booking/success?bookingId=${payment.bookingId}`,
+    };
+};
 
 
 export const PaymentService = {
     initSSLCommerzSession,
+    handleSuccess
 };
