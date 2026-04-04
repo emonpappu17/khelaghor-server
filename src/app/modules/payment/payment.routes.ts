@@ -9,5 +9,7 @@ router.post("/success", PaymentController.handleSuccess);
 
 router.post("/fail", PaymentController.handleFail);
 
+router.post("/cancel", PaymentController.handleCancel);
+
 
 export const PaymentRoutes = router;

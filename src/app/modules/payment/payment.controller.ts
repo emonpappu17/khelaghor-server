@@ -32,8 +32,18 @@ const handleFail = catchAsync(async (req: Request, res: Response) => {
     res.redirect(result.redirectUrl);
 });
 
+const handleCancel = catchAsync(async (req: Request, res: Response) => {
+    const { tran_id } = req.body as RedirectInput;
+
+    const result = await PaymentService.handleCancel(tran_id);
+
+    res.redirect(result.redirectUrl);
+});
+
 export const PaymentController = {
     handleSuccess,
     handleIPN,
-    handleFail
+    handleFail,
+    handleCancel,
+
 };

@@ -251,10 +251,44 @@ const handleFail = async (tranId: string) => {
     };
 };
 
+const handleCancel = async (tranId: string) => {
+    const payment = await prisma.payment.findUnique({
+        where: { transactionId: tranId },
+        include: { booking: true },
+    });
+
+    if (payment && payment.status === PaymentStatus.PENDING) {
+        await prisma.$transaction(async (tx) => {
+            await tx.payment.update({
+                where: { id: payment.id },
+                data: { status: PaymentStatus.CANCELLED },
+            });
+
+            await tx.booking.update({
+                where: { id: payment.bookingId },
+                data: {
+                    bookingStatus: BookingStatus.CANCELLED,
+                    cancelledAt: new Date(),
+                    cancellationReason: "Payment cancelled by user",
+                },
+            });
+
+            await tx.slot.update({
+                where: { id: payment.booking.slotId },
+                data: { status: SlotStatus.AVAILABLE },
+            });
+        });
+    }
+
+    return {
+        redirectUrl: `${env.CLIENT_URL}/booking/cancel?bookingId=${payment?.bookingId || "unknown"}`,
+    };
+};
 
 export const PaymentService = {
     initSSLCommerzSession,
     handleSuccess,
     handleIPN,
-    handleFail
+    handleFail,
+    handleCancel
 };
