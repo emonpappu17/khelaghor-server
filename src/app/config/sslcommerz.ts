@@ -1,5 +1,5 @@
 import axios from "axios";
-import { SSLCommerzSessionParams, SSLCommerzSessionResponse } from "../types/sslcommerz.types";
+import { SSLCommerzSessionParams, SSLCommerzSessionResponse, SSLCommerzValidationResponse } from "../types/sslcommerz.types";
 import { env } from "./env";
 
 const SANDBOX_BASE = "https://sandbox.sslcommerz.com";
@@ -36,6 +36,24 @@ export const createSSLCommerzSession = async (
             `SSLCommerz session creation failed: ${data.faession || "Unknown error"}`
         );
     }
+
+    return data;
+};
+
+export const validateSSLCommerzTransaction = async (
+    valId: string
+): Promise<SSLCommerzValidationResponse> => {
+    const baseUrl = getBaseUrl();
+    const url = `${baseUrl}/validator/api/validationserverAPI.php`;
+
+    const { data } = await axios.get(url, {
+        params: {
+            val_id: valId,
+            store_id: env.SSLCOMMERZ_STORE_ID,
+            store_passwd: env.SSLCOMMERZ_STORE_PASSWORD,
+            format: "json",
+        },
+    });
 
     return data;
 };

@@ -1,8 +1,9 @@
+import { BookingStatus, PaymentStatus, SlotStatus } from "../../../generated/prisma/enums";
 import { env } from "../../config/env";
-import { createSSLCommerzSession } from "../../config/sslcommerz";
+import { createSSLCommerzSession, validateSSLCommerzTransaction } from "../../config/sslcommerz";
 import { prisma } from "../../lib/prisma";
 import { SSLCommerzSessionParams } from "../../types/sslcommerz.types";
-import { SSLCOMMERZ_PRODUCT } from "./payment.constants";
+import { SSLCOMMERZ_PRODUCT, VALID_PAYMENT_STATUSES } from "./payment.constants";
 
 const initSSLCommerzSession = async (
     payment: PaymentRecord,
@@ -49,6 +50,156 @@ const initSSLCommerzSession = async (
     };
 };
 
+const handleIPN = async (ipnData: {
+    tran_id: string;
+    val_id: string;
+    status: string;
+    amount?: string;
+    card_type?: string;
+    bank_tran_id?: string;
+}) => {
+    const { tran_id, val_id } = ipnData;
+
+    // 1. Find payment by transactionId
+    const payment = await prisma.payment.findUnique({
+        where: { transactionId: tran_id },
+        include: { booking: true },
+    });
+
+    if (!payment) {
+        console.error(`[IPN] Payment not found for tran_id: ${tran_id}`);
+        return { message: "Payment not found" };
+    }
+
+    // 2. Idempotency check — already processed
+    if (payment.status === PaymentStatus.COMPLETED) {
+        console.log(`[IPN] Payment ${tran_id} already completed. Skipping.`);
+        return { message: "Already processed" };
+    }
+
+    // 3. If booking already cancelled (by cron or user), reject
+    if (payment.booking.bookingStatus === BookingStatus.CANCELLED) {
+        console.log(`[IPN] Booking ${payment.bookingId} already cancelled. Skipping.`);
+        return { message: "Booking already cancelled" };
+    }
+
+    // 4. Validate with SSLCommerz — NEVER trust IPN data alone
+    const validation = await validateSSLCommerzTransaction(val_id);
+
+    const isValid = VALID_PAYMENT_STATUSES.includes(
+        validation.status as (typeof VALID_PAYMENT_STATUSES)[number]
+    );
+
+    if (isValid) {
+        // 5. Successful payment → Update in Serializable transaction
+        await prisma.$transaction(
+            async (tx) => {
+                // Re-fetch payment to prevent race condition
+                const freshPayment = await tx.payment.findUnique({
+                    where: { id: payment.id },
+                    include: { booking: true },
+                });
+
+                if (!freshPayment || freshPayment.status === PaymentStatus.COMPLETED) {
+                    return; // Already processed
+                }
+
+                if (freshPayment.booking.bookingStatus === BookingStatus.CANCELLED) {
+                    return; // Booking cancelled
+                }
+
+                const now = new Date();
+
+                // Update payment
+                await tx.payment.update({
+                    where: { id: payment.id },
+                    data: {
+                        status: PaymentStatus.COMPLETED,
+                        valId: validation.val_id,
+                        bankTranId: validation.bank_tran_id,
+                        cardType: validation.card_type,
+                        paymentMethod: validation.card_type,
+                        riskLevel: parseInt(validation.risk_level) || 0,
+                        paidAt: now,
+                    },
+                });
+
+                // Recalculate booking totals
+                const allPayments = await tx.payment.findMany({
+                    where: {
+                        bookingId: payment.bookingId,
+                        status: PaymentStatus.COMPLETED,
+                    },
+                });
+
+                const totalPaid = allPayments.reduce(
+                    (sum, p) => sum + p.amount,
+                    0
+                ) + freshPayment.amount;
+
+                const newDueAmount = Math.max(
+                    0,
+                    Math.round((freshPayment.booking.totalAmount - totalPaid) * 100) / 100
+                );
+
+                const isFullyPaid = newDueAmount <= 0;
+
+                // Update booking
+                await tx.booking.update({
+                    where: { id: payment.bookingId },
+                    data: {
+                        paidAmount: Math.round(totalPaid * 100) / 100,
+                        dueAmount: newDueAmount,
+                        bookingStatus: isFullyPaid
+                            ? BookingStatus.CONFIRMED
+                            : BookingStatus.PENDING,
+                    },
+                });
+
+                console.log(
+                    `[IPN] Payment ${tran_id} completed. Booking ${payment.bookingId} → ${isFullyPaid ? "CONFIRMED" : "PENDING (partial)"}`
+                );
+            },
+            { isolationLevel: "Serializable" }
+        );
+    } else {
+        // 6. Failed / Invalid payment
+        await prisma.$transaction(
+            async (tx) => {
+                await tx.payment.update({
+                    where: { id: payment.id },
+                    data: {
+                        status: PaymentStatus.FAILED,
+                        valId: validation.val_id || null,
+                    },
+                });
+
+                // Cancel booking and free slot
+                await tx.booking.update({
+                    where: { id: payment.bookingId },
+                    data: {
+                        bookingStatus: BookingStatus.CANCELLED,
+                        cancelledAt: new Date(),
+                        cancellationReason: `Payment failed - SSLCommerz status: ${validation.status}`,
+                    },
+                });
+
+                await tx.slot.update({
+                    where: { id: payment.booking.slotId },
+                    data: { status: SlotStatus.AVAILABLE },
+                });
+
+                console.log(
+                    `[IPN] Payment ${tran_id} failed. Booking ${payment.bookingId} cancelled, slot freed.`
+                );
+            },
+            { isolationLevel: "Serializable" }
+        );
+    }
+
+    return { message: "IPN processed" };
+};
+
 const handleSuccess = async (tranId: string) => {
     const payment = await prisma.payment.findUnique({
         where: { transactionId: tranId },
@@ -68,5 +219,6 @@ const handleSuccess = async (tranId: string) => {
 
 export const PaymentService = {
     initSSLCommerzSession,
-    handleSuccess
+    handleSuccess,
+    handleIPN
 };
