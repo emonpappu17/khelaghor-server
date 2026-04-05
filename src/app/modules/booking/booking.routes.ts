@@ -14,4 +14,11 @@ router.post(
     BookingController.createBooking
 );
 
+router.post(
+    "/:bookingId/cancel",
+    checkAuth(UserRole.USER, UserRole.HOST, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+    validateRequest(BookingValidation.cancelBookingSchema),
+    BookingController.cancelBooking
+);
+
 export const BookingRoutes = router;

@@ -2,7 +2,7 @@ import { addMinutes } from "date-fns";
 import { BookingStatus, PaymentStatus, PaymentType, SlotStatus } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
-import { CreateBookingInput } from "./booking.validation";
+import { CancelBookingInput, CreateBookingInput } from "./booking.validation";
 import { BOOKING_EXPIRY_MINUTES, PARTIAL_PAYMENT_PERCENTAGE, PLATFORM_FEE_PERCENTAGE } from "./booking.constants";
 import { PaymentService } from "../payment/payment.service";
 
@@ -155,6 +155,90 @@ const createBooking = async (userId: string, data: CreateBookingInput) => {
     };
 };
 
+const cancelBooking = async (
+    userId: string,
+    bookingId: string,
+    data: CancelBookingInput
+) => {
+    return await prisma.$transaction(
+        async (tx) => {
+            const booking = await tx.booking.findUnique({
+                where: { id: bookingId },
+                include: { payments: true },
+            });
+
+            if (!booking) {
+                throw new AppError("Booking not found", 404);
+            }
+
+            if (booking.userId !== userId) {
+                throw new AppError(
+                    "You don't have permission to cancel this booking",
+                    403
+                );
+            }
+
+            if (
+                booking.bookingStatus === BookingStatus.CANCELLED ||
+                booking.bookingStatus === BookingStatus.COMPLETED
+            ) {
+                throw new AppError(
+                    `Cannot cancel a booking that is already ${booking.bookingStatus.toLowerCase()}`,
+                    400
+                );
+            }
+
+            const now = new Date();
+            const reason =
+                data.reason || "Cancelled by user";
+
+            // Cancel all PENDING payments
+            await tx.payment.updateMany({
+                where: {
+                    bookingId: booking.id,
+                    status: PaymentStatus.PENDING,
+                },
+                data: {
+                    status: PaymentStatus.CANCELLED,
+                },
+            });
+
+            // If booking was CONFIRMED (already paid), mark payment for refund review
+            if (booking.bookingStatus === BookingStatus.CONFIRMED) {
+                await tx.payment.updateMany({
+                    where: {
+                        bookingId: booking.id,
+                        status: PaymentStatus.COMPLETED,
+                    },
+                    data: {
+                        status: PaymentStatus.REFUNDED,
+                    },
+                });
+            }
+
+            // Cancel the booking
+            const updatedBooking = await tx.booking.update({
+                where: { id: bookingId },
+                data: {
+                    bookingStatus: BookingStatus.CANCELLED,
+                    cancelledAt: now,
+                    cancellationReason: reason,
+                },
+            });
+
+            // Free the slot
+            await tx.slot.update({
+                where: { id: booking.slotId },
+                data: { status: SlotStatus.AVAILABLE },
+            });
+
+            return updatedBooking;
+        },
+        { isolationLevel: "Serializable" }
+    );
+};
+
 export const BookingService = {
-    createBooking
+    createBooking,
+    cancelBooking
 };
