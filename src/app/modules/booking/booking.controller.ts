@@ -3,6 +3,7 @@ import { catchAsync } from "../../utils/catchAsync";
 import { CancelBookingInput, CreateBookingInput } from "./booking.validation";
 import sendResponse from "../../utils/sendResponse";
 import { BookingService } from "./booking.service";
+import pick from "../../utils/pick";
 
 const createBooking = catchAsync(async (req: Request, res: Response) => {
     const userId = req.authUser.userId;
@@ -19,6 +20,29 @@ const createBooking = catchAsync(async (req: Request, res: Response) => {
             payment: result.payment,
             paymentUrl: result.paymentUrl,
         },
+    });
+});
+
+const getMyBookings = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.authUser.userId;
+    const filters = pick(req.query, ["status"]);
+    const options = pick(req.query, ["page", "limit", "sortBy", "sortOrder"]);
+
+    const result = await BookingService.getMyBookings(userId, filters, options);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message:
+            result.bookings.length === 0
+                ? "No bookings found"
+                : "Bookings fetched successfully",
+        meta: {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+        },
+        data: result.bookings,
     });
 });
 
@@ -40,5 +64,6 @@ const cancelBooking = catchAsync(async (req: Request, res: Response) => {
 
 export const BookingController = {
     createBooking,
-    cancelBooking
+    cancelBooking,
+    getMyBookings
 };

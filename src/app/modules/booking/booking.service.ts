@@ -5,6 +5,8 @@ import { prisma } from "../../lib/prisma";
 import { CancelBookingInput, CreateBookingInput } from "./booking.validation";
 import { BOOKING_EXPIRY_MINUTES, PARTIAL_PAYMENT_PERCENTAGE, PLATFORM_FEE_PERCENTAGE } from "./booking.constants";
 import { PaymentService } from "../payment/payment.service";
+import { TPaginationOptions } from "../../types/pagination";
+import { calculatePagination } from "../../utils/calculatePagination";
 
 const generateTransactionId = (bookingId: string): string => {
     const short = bookingId.split("-")[0];
@@ -238,7 +240,63 @@ const cancelBooking = async (
     );
 };
 
+const getMyBookings = async (
+    userId: string,
+    filters: { status?: string },
+    options: TPaginationOptions
+) => {
+    const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
+
+    const where: any = { userId };
+
+    if (filters.status) {
+        const validStatuses = Object.values(BookingStatus);
+        if (validStatuses.includes(filters.status as BookingStatus)) {
+            where.bookingStatus = filters.status;
+        }
+    }
+
+    const [total, bookings] = await prisma.$transaction([
+        prisma.booking.count({ where }),
+        prisma.booking.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            include: {
+                slot: {
+                    include: {
+                        field: {
+                            select: {
+                                id: true,
+                                name: true,
+                                sportType: true,
+                                address: true,
+                                area: true,
+                                images: true,
+                            },
+                        },
+                    },
+                },
+                payments: {
+                    select: {
+                        id: true,
+                        amount: true,
+                        status: true,
+                        type: true,
+                        paymentMethod: true,
+                        paidAt: true,
+                    },
+                },
+            },
+        }),
+    ]);
+
+    return { total, page, limit, bookings };
+};
+
 export const BookingService = {
     createBooking,
-    cancelBooking
+    cancelBooking,
+    getMyBookings
 };
