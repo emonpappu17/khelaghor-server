@@ -295,8 +295,74 @@ const getMyBookings = async (
     return { total, page, limit, bookings };
 };
 
+const getHostBookings = async (
+    userId: string,
+    filters: { status?: string },
+    options: TPaginationOptions
+) => {
+    // Find host profile
+    const host = await prisma.host.findUnique({ where: { userId } });
+    if (!host) {
+        throw new AppError("Host profile not found", 404);
+    }
+
+    // Find host's field
+    const field = await prisma.field.findUnique({ where: { hostId: host.id } });
+    if (!field) {
+        throw new AppError("No field found for this host", 404);
+    }
+
+    const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
+
+    const where: any = {
+        slot: { fieldId: field.id },
+    };
+
+    if (filters.status) {
+        const validStatuses = Object.values(BookingStatus);
+        if (validStatuses.includes(filters.status as BookingStatus)) {
+            where.bookingStatus = filters.status;
+        }
+    }
+
+    const [total, bookings] = await prisma.$transaction([
+        prisma.booking.count({ where }),
+        prisma.booking.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            include: {
+                slot: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        avatar: true,
+                    },
+                },
+                payments: {
+                    select: {
+                        id: true,
+                        amount: true,
+                        status: true,
+                        type: true,
+                        paymentMethod: true,
+                        paidAt: true,
+                    },
+                },
+            },
+        }),
+    ]);
+
+    return { total, page, limit, bookings };
+};
+
 export const BookingService = {
     createBooking,
     cancelBooking,
-    getMyBookings
+    getMyBookings,
+    getHostBookings
 };

@@ -46,6 +46,30 @@ const getMyBookings = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+
+const getHostBookings = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.authUser.userId;
+    const filters = pick(req.query, ["status"]);
+    const options = pick(req.query, ["page", "limit", "sortBy", "sortOrder"]);
+
+    const result = await BookingService.getHostBookings(userId, filters, options);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message:
+            result.bookings.length === 0
+                ? "No bookings found"
+                : "Host bookings fetched successfully",
+        meta: {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+        },
+        data: result.bookings,
+    });
+});
+
 const cancelBooking = catchAsync(async (req: Request, res: Response) => {
     const userId = req.authUser.userId;
     const bookingId = req.params.bookingId as string;
@@ -65,5 +89,6 @@ const cancelBooking = catchAsync(async (req: Request, res: Response) => {
 export const BookingController = {
     createBooking,
     cancelBooking,
-    getMyBookings
+    getMyBookings,
+    getHostBookings
 };
