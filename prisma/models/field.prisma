@@ -41,7 +41,6 @@ model Slot {
     pricePerSlot Float
     status       SlotStatus @default(AVAILABLE)
 
-    // booking Booking?
     bookings Booking[]
 
     createdAt DateTime @default(now())
