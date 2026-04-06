@@ -14,5 +14,8 @@ router.post(
     ReviewController.createReview
 );
 
+router.get("/field/:fieldId", ReviewController.getFieldReviews);
+
+
 
 export const ReviewRoutes = router;

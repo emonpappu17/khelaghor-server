@@ -1,6 +1,8 @@
 import { BookingStatus } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
+import { TPaginationOptions } from "../../types/pagination";
+import { calculatePagination } from "../../utils/calculatePagination";
 import { CreateReviewInput } from "./review.validation";
 
 const recalculateFieldRating = async (
@@ -101,6 +103,50 @@ const createReview = async (userId: string, data: CreateReviewInput) => {
     );
 };
 
+const getFieldReviews = async (
+    fieldId: string,
+    options: TPaginationOptions
+) => {
+    const field = await prisma.field.findUnique({ where: { id: fieldId } });
+    if (!field) {
+        throw new AppError("Field not found", 404);
+    }
+
+    const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
+
+    const where = { fieldId };
+
+    const [total, reviews] = await prisma.$transaction([
+        prisma.review.count({ where }),
+        prisma.review.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        avatar: true,
+                    },
+                },
+            },
+        }),
+    ]);
+
+    return {
+        total,
+        page,
+        limit,
+        averageRating: field.averageRating,
+        totalReviews: field.totalReviews,
+        reviews,
+    };
+};
+
+
 export const ReviewService = {
     createReview,
+    getFieldReviews
 };
