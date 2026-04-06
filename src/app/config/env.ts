@@ -49,5 +49,13 @@ export const env = {
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY as string,
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
 
-    BARIKOI_API_KEY: process.env.BARIKOI_API_KEY as string
+    BARIKOI_API_KEY: process.env.BARIKOI_API_KEY as string,
+
+    // SSLCommerz
+    SSLCOMMERZ_STORE_ID: process.env.SSLCOMMERZ_STORE_ID as string,
+    SSLCOMMERZ_STORE_PASSWORD: process.env.SSLCOMMERZ_STORE_PASSWORD as string,
+    SSLCOMMERZ_IS_LIVE: process.env.SSLCOMMERZ_IS_LIVE === "true",
+
+    // Server URL (for SSLCommerz callbacks)
+    SERVER_URL: process.env.SERVER_URL || "http://localhost:5000",
 };

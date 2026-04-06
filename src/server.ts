@@ -3,6 +3,7 @@ import app from "./app";
 import { env } from "./app/config/env";
 import { seedSuperAdmin } from "./app/utils/seedAdmin";
 import { connectRedis } from './app/lib/redis';
+import { startCronJobs } from './app/cron';
 
 let server: Server;
 
@@ -15,6 +16,7 @@ async function main() {
     // 2. Start Listening
     server = app.listen(env.PORT, () => {
       console.log(`🚀 Server running on http://localhost:${env.PORT}`);
+      startCronJobs();
     });
   } catch (err) {
     console.error("❌ Failed to start server:", err);
