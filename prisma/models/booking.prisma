@@ -1,0 +1,74 @@
+model Booking {
+    id     String @id @default(uuid())
+    slotId String
+    slot   Slot   @relation(fields: [slotId], references: [id])
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
+
+    totalAmount Float // full price of the booking
+    paidAmount  Float @default(0) // how much has been paid so far
+    dueAmount   Float // remaining balance
+
+    platformFee Float // admin cut (e.g., 5%)
+    hostAmount  Float // host's share after fee
+
+    bookingStatus BookingStatus @default(PENDING)
+
+    cancelledAt        DateTime?
+    cancellationReason String?
+
+    expiresAt DateTime // PENDING booking expiry for cron cleanup
+
+    payments Payment[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+enum BookingStatus {
+    PENDING
+    CONFIRMED
+    COMPLETED
+    CANCELLED
+}
+
+model Payment {
+    id        String  @id @default(uuid())
+    bookingId String
+    booking   Booking @relation(fields: [bookingId], references: [id])
+
+    amount        Float
+    currency      String        @default("BDT")
+    type          PaymentType
+    status        PaymentStatus @default(PENDING)
+
+    // SSLCommerz specific fields
+    transactionId  String  @unique // unique tran_id sent to SSLCommerz
+    sessionKey     String? // SSLCommerz session key
+    gatewayPageURL String? // SSLCommerz redirect URL
+    valId          String? // SSLCommerz validation ID
+    bankTranId     String? // bank transaction ID
+    cardType       String? // card type used (VISA, Mastercard, etc.)
+    paymentMethod  String? // bKash, Nagad, card, etc.
+    riskLevel      Int? // SSLCommerz risk level (0 = safe, 1 = risky)
+
+    paidAt    DateTime?
+    expiresAt DateTime // payment session expiry
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+enum PaymentType {
+    FULL
+    PARTIAL
+}
+
+enum PaymentStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    CANCELLED
+    REFUNDED
+}
+
