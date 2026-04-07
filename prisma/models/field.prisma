@@ -20,7 +20,11 @@ model Field {
 
     status FieldStatus @default(ACTIVE)
 
-    slots Slot[]
+    averageRating Float @default(0)
+    totalReviews  Int   @default(0)
+
+    slots   Slot[]
+    reviews Review[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -37,12 +41,27 @@ model Slot {
     pricePerSlot Float
     status       SlotStatus @default(AVAILABLE)
 
-    // booking Booking?
     bookings Booking[]
 
     createdAt DateTime @default(now())
 
     @@unique([fieldId, date, startTime])
+}
+
+model Review {
+    id      String @id @default(uuid())
+    userId  String
+    user    User   @relation(fields: [userId], references: [id])
+    fieldId String
+    field   Field  @relation(fields: [fieldId], references: [id])
+
+    rating  Int
+    comment String
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, fieldId])
 }
 
 enum SportType {

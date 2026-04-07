@@ -13,6 +13,7 @@ model User {
   hostProfile Host?
   auths       Auth[]
   bookings    Booking[]
+  reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

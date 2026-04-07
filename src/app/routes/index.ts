@@ -7,6 +7,7 @@ import { SlotRoutes } from "../modules/slot/slot.routes";
 import { MapRoutes } from "../modules/map/map.routes";
 import { BookingRoutes } from "../modules/booking/booking.routes";
 import { PaymentRoutes } from "../modules/payment/payment.routes";
+import { ReviewRoutes } from "../modules/review/review.routes";
 
 export const router = Router();
 
@@ -42,6 +43,10 @@ const moduleRoutes = [
   {
     path: "/payments",
     route: PaymentRoutes,
+  },
+  {
+    path: "/reviews",
+    route: ReviewRoutes,
   },
 ];
 
