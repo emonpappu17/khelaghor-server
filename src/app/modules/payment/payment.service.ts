@@ -1,6 +1,7 @@
 import { BookingStatus, PaymentStatus, SlotStatus } from "../../../generated/prisma/enums";
 import { env } from "../../config/env";
 import { createSSLCommerzSession, validateSSLCommerzTransaction } from "../../config/sslcommerz";
+import { NotificationEmitter } from "../../lib/notificationEmitter";
 import { prisma } from "../../lib/prisma";
 import { SSLCommerzSessionParams } from "../../types/sslcommerz.types";
 import { SSLCOMMERZ_PRODUCT, VALID_PAYMENT_STATUSES } from "./payment.constants";
@@ -162,6 +163,48 @@ const handleIPN = async (ipnData: {
             },
             { isolationLevel: "Serializable" }
         );
+
+        // Notify user: payment success
+        NotificationEmitter.emit("notify", {
+            recipientId: payment.booking.userId,
+            type: "PAYMENT_SUCCESS",
+            title: "Payment Successful",
+            body: `Your payment of ৳${payment.amount} has been confirmed.`,
+            metadata: { bookingId: payment.bookingId, paymentId: payment.id },
+        });
+
+        // If booking is now fully confirmed, notify user + host
+        const freshBooking = await prisma.booking.findUnique({
+            where: { id: payment.bookingId },
+            include: {
+                slot: {
+                    include: {
+                        field: {
+                            include: { host: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (freshBooking && freshBooking.bookingStatus === BookingStatus.CONFIRMED) {
+            NotificationEmitter.emit("notify", {
+                recipientId: freshBooking.userId,
+                type: "BOOKING_CONFIRMED",
+                title: "Booking Confirmed!",
+                body: `Your booking for ${freshBooking.slot.field.name} on ${freshBooking.slot.date.toISOString().split("T")[0]} (${freshBooking.slot.startTime} - ${freshBooking.slot.endTime}) is confirmed.`,
+                metadata: { bookingId: freshBooking.id, fieldId: freshBooking.slot.fieldId },
+            });
+
+            // Notify host of new booking
+            NotificationEmitter.emit("notify", {
+                recipientId: freshBooking.slot.field.host.userId,
+                type: "NEW_BOOKING",
+                title: "New Booking Received",
+                body: `A new booking has been confirmed for ${freshBooking.slot.field.name} on ${freshBooking.slot.date.toISOString().split("T")[0]} (${freshBooking.slot.startTime} - ${freshBooking.slot.endTime}).`,
+                metadata: { bookingId: freshBooking.id, fieldId: freshBooking.slot.fieldId },
+            });
+        }
     } else {
         // 6. Failed / Invalid payment
         await prisma.$transaction(
@@ -195,6 +238,15 @@ const handleIPN = async (ipnData: {
             },
             { isolationLevel: "Serializable" }
         );
+
+        // Notify user of payment failure
+        NotificationEmitter.emit("notify", {
+            recipientId: payment.booking.userId,
+            type: "PAYMENT_FAILED",
+            title: "Payment Failed",
+            body: `Your payment for booking could not be processed. The booking has been cancelled.`,
+            metadata: { bookingId: payment.bookingId, paymentId: payment.id },
+        });
     }
 
     return { message: "IPN processed" };
@@ -244,6 +296,15 @@ const handleFail = async (tranId: string) => {
                 data: { status: SlotStatus.AVAILABLE },
             });
         });
+
+        // Notify user of payment failure
+        NotificationEmitter.emit("notify", {
+            recipientId: payment.booking.userId,
+            type: "PAYMENT_FAILED",
+            title: "Payment Failed",
+            body: `Your payment could not be processed. The booking has been cancelled.`,
+            metadata: { bookingId: payment.bookingId },
+        });
     }
 
     return {
@@ -277,6 +338,15 @@ const handleCancel = async (tranId: string) => {
                 where: { id: payment.booking.slotId },
                 data: { status: SlotStatus.AVAILABLE },
             });
+        });
+
+        // Notify user of cancellation
+        NotificationEmitter.emit("notify", {
+            recipientId: payment.booking.userId,
+            type: "BOOKING_CANCELLED",
+            title: "Booking Cancelled",
+            body: `Your booking has been cancelled because the payment was not completed.`,
+            metadata: { bookingId: payment.bookingId },
         });
     }
 
