@@ -1,0 +1,30 @@
+
+model Notification {
+    id          String           @id @default(uuid())
+    recipientId String
+    recipient   User             @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+    type     NotificationType
+    title    String
+    body     String
+    metadata Json?
+
+    isRead Boolean   @default(false)
+    readAt DateTime?
+
+    createdAt DateTime @default(now())
+
+    @@index([recipientId, isRead, createdAt])
+}
+
+enum NotificationType {
+    BOOKING_CONFIRMED
+    BOOKING_CANCELLED
+    BOOKING_EXPIRED
+    PAYMENT_SUCCESS
+    PAYMENT_FAILED
+    NEW_BOOKING
+    NEW_REVIEW
+    HOST_APPROVED
+    SYSTEM
+}
