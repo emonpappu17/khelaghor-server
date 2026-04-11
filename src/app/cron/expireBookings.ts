@@ -1,4 +1,5 @@
 import { BookingStatus, PaymentStatus, SlotStatus } from "../../generated/prisma/enums";
+import { NotificationEmitter } from "../lib/notificationEmitter";
 import { prisma } from "../lib/prisma";
 
 const BATCH_SIZE = 50;
@@ -16,6 +17,7 @@ export const expireUnpaidBookings = async (): Promise<void> => {
             select: {
                 id: true,
                 slotId: true,
+                userId: true
             },
             take: BATCH_SIZE,
         });
@@ -81,6 +83,14 @@ export const expireUnpaidBookings = async (): Promise<void> => {
                 );
 
                 processedCount++;
+
+                NotificationEmitter.emit("notify", {
+                    recipientId: booking.userId,
+                    type: "BOOKING_EXPIRED",
+                    title: "Booking Expired",
+                    body: `Your booking has expired because payment was not completed within the allowed time.`,
+                    metadata: { bookingId: booking.id },
+                });
             } catch (err) {
                 // Log but don't stop — continue processing other bookings
                 console.error(

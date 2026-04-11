@@ -7,6 +7,7 @@ import { BOOKING_EXPIRY_MINUTES, PARTIAL_PAYMENT_PERCENTAGE, PLATFORM_FEE_PERCEN
 import { PaymentService } from "../payment/payment.service";
 import { TPaginationOptions } from "../../types/pagination";
 import { calculatePagination } from "../../utils/calculatePagination";
+import { NotificationEmitter } from "../../lib/notificationEmitter";
 
 const generateTransactionId = (bookingId: string): string => {
     const short = bookingId.split("-")[0];
@@ -166,7 +167,16 @@ const cancelBooking = async (
         async (tx) => {
             const booking = await tx.booking.findUnique({
                 where: { id: bookingId },
-                include: { payments: true },
+                include: {
+                    payments: true,
+                    slot: {
+                        include: {
+                            field: {
+                                include: { host: true },
+                            },
+                        },
+                    },
+                },
             });
 
             if (!booking) {
@@ -190,6 +200,7 @@ const cancelBooking = async (
                 );
             }
 
+            const wasConfirmed = booking.bookingStatus === BookingStatus.CONFIRMED;
             const now = new Date();
             const reason =
                 data.reason || "Cancelled by user";
@@ -206,7 +217,7 @@ const cancelBooking = async (
             });
 
             // If booking was CONFIRMED (already paid), mark payment for refund review
-            if (booking.bookingStatus === BookingStatus.CONFIRMED) {
+            if (wasConfirmed) {
                 await tx.payment.updateMany({
                     where: {
                         bookingId: booking.id,
@@ -233,6 +244,26 @@ const cancelBooking = async (
                 where: { id: booking.slotId },
                 data: { status: SlotStatus.AVAILABLE },
             });
+
+            // Always notify the user
+            NotificationEmitter.emit("notify", {
+                recipientId: userId,
+                type: "BOOKING_CANCELLED",
+                title: "Booking Cancelled",
+                body: `Your booking for ${booking.slot.field.name} on ${booking.slot.date.toISOString().split("T")[0]} has been cancelled.`,
+                metadata: { bookingId: booking.id, fieldId: booking.slot.fieldId },
+            });
+
+            // If was CONFIRMED, also notify the host
+            if (wasConfirmed) {
+                NotificationEmitter.emit("notify", {
+                    recipientId: booking.slot.field.host.userId,
+                    type: "BOOKING_CANCELLED",
+                    title: "Booking Cancelled by User",
+                    body: `A confirmed booking for ${booking.slot.field.name} on ${booking.slot.date.toISOString().split("T")[0]} (${booking.slot.startTime} - ${booking.slot.endTime}) has been cancelled by the user.`,
+                    metadata: { bookingId: booking.id, fieldId: booking.slot.fieldId },
+                });
+            }
 
             return updatedBooking;
         },
