@@ -1,5 +1,6 @@
 import { BookingStatus } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
+import { NotificationEmitter } from "../../lib/notificationEmitter";
 import { prisma } from "../../lib/prisma";
 import { TPaginationOptions } from "../../types/pagination";
 import { calculatePagination } from "../../utils/calculatePagination";
@@ -96,6 +97,16 @@ const createReview = async (userId: string, data: CreateReviewInput) => {
 
             // Recalculate field rating
             await recalculateFieldRating(data.fieldId, tx);
+
+            // 7. Notify host of new review (fire-and-forget)
+            NotificationEmitter.emit("notify", {
+                recipientId: field.host.userId,
+                type: "NEW_REVIEW",
+                title: "New Review Received",
+                body: `${review.user.name} left a ${data.rating}-star review on ${field.name}: "${data.comment.substring(0, 80)}${data.comment.length > 80 ? "..." : ""}"`,
+                metadata: { reviewId: review.id, fieldId: field.id, rating: data.rating },
+            });
+
 
             return review;
         },

@@ -8,6 +8,7 @@ import { MapRoutes } from "../modules/map/map.routes";
 import { BookingRoutes } from "../modules/booking/booking.routes";
 import { PaymentRoutes } from "../modules/payment/payment.routes";
 import { ReviewRoutes } from "../modules/review/review.routes";
+import { NotificationRoutes } from "../modules/notification/notification.routes";
 
 export const router = Router();
 
@@ -47,6 +48,10 @@ const moduleRoutes = [
   {
     path: "/reviews",
     route: ReviewRoutes,
+  },
+  {
+    path: "/notifications",
+    route: NotificationRoutes,
   },
 ];
 
