@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { catchAsync } from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
 import { AuthService } from './auth.service';
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, VerifyOptInput } from './auth.validation';
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, SendVerificationOtpInput, VerifyEmailOtpInput, VerifyOptInput } from './auth.validation';
 import { setAuthCookie } from '../../utils/setCookie';
 import { env } from '../../config/env';
 import { generateAccessToken, generateRefreshToken, TJwtPayload, verifyResetToken } from '../../utils/jwt';
@@ -109,6 +109,28 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const sendVerificationOtp = catchAsync(async (req: Request, res: Response) => {
+    const result = await AuthService.sendVerificationOtp(req.body as SendVerificationOtpInput);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: 'Verification OTP sent to your email',
+        data: result,
+    });
+});
+
+const verifyEmailOtp = catchAsync(async (req: Request, res: Response) => {
+    const result = await AuthService.verifyEmailOtp(req.body as VerifyEmailOtpInput);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "Email verified successfully",
+        data: result,
+    });
+});
+
 const logout = catchAsync(async (req: Request, res: Response) => {
     res.clearCookie("accessToken", {
         httpOnly: true,
@@ -178,5 +200,7 @@ export const AuthController = {
     verifyForgotPasswordOtp,
     resetPassword,
     googleCallback,
-    getNewAccessToken
+    getNewAccessToken,
+    sendVerificationOtp,
+    verifyEmailOtp
 };

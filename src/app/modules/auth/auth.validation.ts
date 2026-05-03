@@ -70,12 +70,25 @@ const resetPasswordSchema = z.object({
         .min(1, "Password is required"),
 });
 
+const sendVerificationOtpSchema = z.object({
+    email: z
+        .email("Invalid email address"),
+});
+
+const verifyEmailOtpSchema = z.object({
+    email: z
+        .email("Invalid email address"),
+    otp: z.number().int().min(100000).max(999999),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type VerifyOptInput = z.infer<typeof verifyOptSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type SendVerificationOtpInput = z.infer<typeof sendVerificationOtpSchema>;
+export type VerifyEmailOtpInput = z.infer<typeof verifyEmailOtpSchema>;
 
 export const AuthValidation = {
     registerSchema,
@@ -83,5 +96,7 @@ export const AuthValidation = {
     changePasswordSchema,
     forgotPasswordSchema,
     verifyOptSchema,
-    resetPasswordSchema
+    resetPasswordSchema,
+    sendVerificationOtpSchema,
+    verifyEmailOtpSchema
 };

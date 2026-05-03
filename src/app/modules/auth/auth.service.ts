@@ -7,11 +7,12 @@ import { generateOtpEmailHTML } from "../../utils/emailHTMLtext";
 import { generateOTP } from "../../utils/generateOTP";
 import { generateAccessToken, generateRefreshToken, generateResetPassToken, TJwtPayload, verifyRefreshToken } from "../../utils/jwt";
 import { sendEmail } from "../../utils/sendEmail";
-import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, VerifyOptInput } from "./auth.validation";
+import { ChangePasswordInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, SendVerificationOtpInput, VerifyEmailOtpInput, VerifyOptInput } from "./auth.validation";
 import { parseTimeToMs } from '../../utils/parseTime';
 import { env } from '../../config/env';
 
 const OTP_PREFIX = "forgot-password-otp:";
+const EMAIL_VERIFICATION_OTP_PREFIX = "email-verification-otp:";
 const OTP_EXPIRATION = 2 * 60 //2 minute
 const REFRESH_PREFIX = "refresh-token:";
 
@@ -22,7 +23,8 @@ const register = async (data: RegisterInput) => {
     });
 
     if (existingUser) {
-        throw new AppError('User with this email already exists', 409);
+        throw new AppError('Email has already taken', 409);
+        // throw new AppError('User with this email already exists', 409);
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
@@ -299,6 +301,71 @@ const resetPassword = async (data: ResetPasswordInput, userId: string) => {
     return { message: "Password reset successfully" };
 };
 
+const sendVerificationOtp = async (data: SendVerificationOtpInput) => {
+    const user = await prisma.user.findUnique({
+        where: { email: data.email },
+    });
+
+    if (!user) {
+        throw new AppError("User with this email does not exist", 404);
+    }
+
+    if (user.isVerified) {
+        throw new AppError("Email is already verified", 400);
+    }
+
+    const otp = generateOTP();
+
+    await redisClient.set(`${EMAIL_VERIFICATION_OTP_PREFIX}${user.email}`, otp, {
+        expiration: {
+            type: "EX",
+            value: OTP_EXPIRATION
+        }
+    });
+
+    const emailHtml = generateOtpEmailHTML(otp);
+
+    await sendEmail(
+        user.email,
+        emailHtml,
+        "Your Email Verification OTP",
+    );
+
+    return { message: "Verification OTP sent to your email" };
+};
+
+const verifyEmailOtp = async (data: VerifyEmailOtpInput) => {
+    const user = await prisma.user.findUnique({
+        where: { email: data.email },
+    });
+
+    if (!user) {
+        throw new AppError("User with this email does not exist", 404);
+    }
+
+    if (user.isVerified) {
+        throw new AppError("Email is already verified", 400);
+    }
+
+    const storedOtp = await redisClient.get(`${EMAIL_VERIFICATION_OTP_PREFIX}${user.email}`);
+
+    if (!storedOtp) {
+        throw new AppError("OTP expired or not found", 400);
+    }
+
+    if (storedOtp !== data.otp.toString()) {
+        throw new AppError("Invalid OTP", 400);
+    }
+
+    await redisClient.del(`${EMAIL_VERIFICATION_OTP_PREFIX}${user.email}`);
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+    });
+
+    return { message: "Email verified successfully" };
+};
 
 export const AuthService = {
     register,
@@ -307,5 +374,7 @@ export const AuthService = {
     forgotPassword,
     verifyForgotPasswordOtp,
     resetPassword,
-    getNewAccessToken
+    getNewAccessToken,
+    sendVerificationOtp,
+    verifyEmailOtp
 };

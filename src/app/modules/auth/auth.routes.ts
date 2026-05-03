@@ -51,6 +51,18 @@ router.post(
 );
 
 router.post(
+    '/send-verification-otp',
+    validateRequest(AuthValidation.sendVerificationOtpSchema),
+    AuthController.sendVerificationOtp
+);
+
+router.post(
+    '/verify-email-otp',
+    validateRequest(AuthValidation.verifyEmailOtpSchema),
+    AuthController.verifyEmailOtp
+);
+
+router.post(
     '/logout',
     checkAuth(),
     AuthController.logout
