@@ -137,7 +137,7 @@ const login = async (data: LoginInput) => {
 
     // 🔄 Store refresh token for rotation
     await redisClient.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, {
-        expiration: { type: "EX", value: refreshMaxAge }, 
+        expiration: { type: "EX", value: refreshMaxAge },
     });
 
     return {
@@ -290,6 +290,8 @@ const resetPassword = async (data: ResetPasswordInput, userId: string) => {
     if (!user) {
         throw new AppError("User not found", 404);
     }
+
+    if (user.email !== data.email) throw new AppError("Email miss match", 400);
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
