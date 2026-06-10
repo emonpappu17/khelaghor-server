@@ -9,6 +9,7 @@ const createField = catchAsync(async (req: Request, res: Response) => {
   const userId = req.authUser.userId;
   const payload = req.body as CreateFieldInput;
   const files = req.files as Express.Multer.File[] | undefined;
+  console.log('payload==>',payload);
   const field = await FieldService.createField(userId, payload, files);
 
   sendResponse(res, {

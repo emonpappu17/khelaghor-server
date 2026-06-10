@@ -26,7 +26,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-app.use("/api/v1", apiLimiter, router);
+app.use("/api/v1",
+  // apiLimiter,
+  router);
 
 app.get("/", (req: Request, res: Response) => {
   sendResponse(res, {
