@@ -17,14 +17,14 @@ const createFieldSchema = z.object({
   facilities: z.array(z.string()).optional().default([]),
   // images: z.array(z.string().url("Invalid image URL")).optional().default([]),
   division: z.string().min(2, "Division must be at least 2 characters"),
-  district: z.string().min(2, "District must be at least 2 characters"),
+  // district: z.string().min(2, "District must be at least 2 characters"),
   address: z.string().min(4, "Address must be at least 4 characters"),
   area: z.string().min(2, "Area must be at least 2 characters"),
   // latitude: z.number(),
   // longitude: z.number(),
 
-  latitude: z.coerce.number(),
-  longitude: z.coerce.number(),
+  // latitude: z.coerce.number(),
+  // longitude: z.coerce.number(),
 });
 
 const updateFieldSchema = createFieldSchema.partial();

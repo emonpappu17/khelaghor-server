@@ -9,7 +9,7 @@ const createField = catchAsync(async (req: Request, res: Response) => {
   const userId = req.authUser.userId;
   const payload = req.body as CreateFieldInput;
   const files = req.files as Express.Multer.File[] | undefined;
-  console.log('payload==>',payload);
+  console.log('payload==>', payload);
   const field = await FieldService.createField(userId, payload, files);
 
   sendResponse(res, {
@@ -36,7 +36,8 @@ const updateField = catchAsync(async (req: Request, res: Response) => {
 });
 
 const listFields = catchAsync(async (req: Request, res: Response) => {
-  const filters = pick(req.query, ["sportType", "division", "district", "area", "status"]);
+  // const filters = pick(req.query, ["sportType", "division", "district", "area", "status"]);
+  const filters = pick(req.query, ["sportType", "division", "area", "status"]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
   const { total, page, limit, fields } = await FieldService.getFields(filters, options);
@@ -47,6 +48,20 @@ const listFields = catchAsync(async (req: Request, res: Response) => {
     message: "Fields fetched successfully",
     meta: { total, page, limit },
     data: fields,
+  });
+});
+
+const getMyField = catchAsync(async (req: Request, res: Response) => {
+  console.log('hit.....');
+  const userId = req.authUser.userId;
+
+  const field = await FieldService.getMyField(userId);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Field retrieved successfully",
+    data: field,
   });
 });
 
@@ -81,4 +96,5 @@ export const FieldController = {
   listFields,
   getField,
   removeField,
+  getMyField
 };

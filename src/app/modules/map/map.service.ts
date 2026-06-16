@@ -38,11 +38,11 @@ const reverseGeocode = async (latitude: string, longitude: string) => {
     const response = await axios.get("https://barikoi.xyz/v2/api/search/reverse/geocode", {
       params: {
         api_key: API_KEY,
-        latitude,
-        longitude,
+        // latitude,
+        // longitude,
         address: true,
         division: true,
-        district: true,
+        // district: true,
         area: true,
       },
     });

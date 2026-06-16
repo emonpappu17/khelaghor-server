@@ -42,11 +42,11 @@ const createField = async (userId: string, data: CreateFieldInput, files?: Expre
       facilities: data.facilities ?? [],
       images: imageUrls.length > 0 ? imageUrls : [],
       division: data.division,
-      district: data.district,
+      // district: data.district,
       address: data.address,
       area: data.area,
-      latitude: data.latitude,
-      longitude: data.longitude,
+      // latitude: data.latitude,
+      // longitude: data.longitude,
       status: "ACTIVE",
     },
   });
@@ -124,7 +124,7 @@ const getFields = async (
   filters: {
     sportType?: string;
     division?: string;
-    district?: string;
+    // district?: string;
     area?: string;
     status?: string;
   },
@@ -143,7 +143,7 @@ const getFields = async (
 
   if (filters.sportType) where.sportType = filters.sportType;
   if (filters.division) where.division = filters.division;
-  if (filters.district) where.district = filters.district;
+  // if (filters.district) where.district = filters.district;
   if (filters.area) where.area = filters.area;
   if (filters.status) where.status = filters.status;
 
@@ -159,6 +159,31 @@ const getFields = async (
   ]);
 
   return { total, page, limit, fields };
+};
+
+const getMyField = async (userId: string) => {
+  const host = await getHostByUserId(userId);
+
+  const field = await prisma.field.findUnique({
+    where: {
+      hostId: host.id,
+    },
+    include: {
+      slots: true,
+      reviews: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return field;
 };
 
 const getFieldById = async (fieldId: string) => {
@@ -195,4 +220,5 @@ export const FieldService = {
   getFields,
   getFieldById,
   deleteField,
+  getMyField
 };
