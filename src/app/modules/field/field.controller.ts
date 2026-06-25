@@ -35,12 +35,39 @@ const updateField = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const listFields = catchAsync(async (req: Request, res: Response) => {
-  // const filters = pick(req.query, ["sportType", "division", "district", "area", "status"]);
-  const filters = pick(req.query, ["sportType", "division", "area", "status"]);
-  const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+// const listFields = catchAsync(async (req: Request, res: Response) => {
+//   // const filters = pick(req.query, ["sportType", "division", "district", "area", "status"]);
+//   const filters = pick(req.query, ["sportType", "division", "area", "address", "status"]);
+//   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
-  const { total, page, limit, fields } = await FieldService.getFields(filters, options);
+//   const { total, page, limit, fields } = await FieldService.getFields(filters, options);
+
+//   sendResponse(res, {
+//     statusCode: 200,
+//     success: true,
+//     message: "Fields fetched successfully",
+//     meta: { total, page, limit },
+//     data: fields,
+//   });
+// });
+
+const listFields = catchAsync(async (req: Request, res: Response) => {
+  const filters = pick(req.query, [
+    "sportType",
+    "division",
+    "status",
+    "searchTerm",
+  ]);
+
+  const options = pick(req.query, [
+    "limit",
+    "page",
+    "sortBy",
+    "sortOrder",
+  ]);
+
+  const { total, page, limit, fields } =
+    await FieldService.getFields(filters, options);
 
   sendResponse(res, {
     statusCode: 200,
