@@ -26,6 +26,12 @@ router.get(
     BookingController.getHostBookings
 );
 
+router.get(
+    "/all-bookings",
+    checkAuth(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+    BookingController.getAllBookings
+);
+
 router.post(
     "/:bookingId/cancel",
     checkAuth(UserRole.USER, UserRole.HOST, UserRole.ADMIN, UserRole.SUPER_ADMIN),
