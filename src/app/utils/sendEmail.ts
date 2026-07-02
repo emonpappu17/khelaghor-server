@@ -28,7 +28,7 @@ export const sendEmail = async (to: string, html: string, subject: string) => {
             text: html.replace(/<[^>]+>/g, ""),
             html,
         };
-
+        console.log('check is log 2==>', to, html, subject);
         const info = await transporter.sendMail(mailOptions);
         // console.log(info);
         return info.messageId;

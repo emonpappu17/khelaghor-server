@@ -240,7 +240,6 @@ const forgotPassword = async (data: ForgotPasswordInput) => {
     });
 
     const emailHtml = generateOtpEmailHTML(otp);
-
     await sendEmail(
         user.email,
         emailHtml,
@@ -326,7 +325,7 @@ const sendVerificationOtp = async (data: SendVerificationOtpInput) => {
     });
 
     const emailHtml = generateOtpEmailHTML(otp);
-
+    console.log('check is log 1==>', user.email, emailHtml,);
     await sendEmail(
         user.email,
         emailHtml,
