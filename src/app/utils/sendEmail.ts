@@ -14,7 +14,9 @@ export const sendEmail = async (to: string, html: string, subject: string) => {
         const transporter = nodemailer.createTransport({
             host: env.SMTP_HOST,
             port: Number(env.SMTP_PORT),
-            secure: true, // 465
+            // secure: true, // 465
+            secure: false,
+            requireTLS: true,
             auth: {
                 user: env.SMTP_USER,
                 pass: env.SMTP_PASS,
@@ -29,11 +31,18 @@ export const sendEmail = async (to: string, html: string, subject: string) => {
             html,
         };
         console.log('check is log 2==>', to, html, subject);
+        await transporter.verify();
+        console.log("SMTP connection successful");
         const info = await transporter.sendMail(mailOptions);
         // console.log(info);
         return info.messageId;
     } catch (error: any) {
-        console.error("Error sending email:", error?.message || error);
+        console.error("===== SMTP ERROR =====");
+        console.error(error);
+        console.error("Code:", error?.code);
+        console.error("Command:", error?.command);
+        console.error("Response:", error?.response);
+        console.error("======================");
         throw new Error("Failed to send email. Please try again later.");
     }
 };
