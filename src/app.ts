@@ -1,3 +1,5 @@
+console.log('1st');
+
 import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -9,7 +11,6 @@ import { router } from "./app/routes";
 import { apiLimiter } from "./app/middlewares/apiLimiter";
 import passport from "passport";
 import "./app/config/passport";
-
 const app: Application = express();
 
 app.set("trust proxy", 1);
@@ -26,7 +27,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-app.use("/api/v1", apiLimiter, router);
+app.use("/api/v1",
+  apiLimiter,
+  router);
 
 app.get("/", (req: Request, res: Response) => {
   sendResponse(res, {

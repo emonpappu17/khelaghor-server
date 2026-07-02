@@ -24,7 +24,7 @@ router.patch(
     checkAuth(...allRoles),
     NotificationController.markAllAsRead
 );
-
+//
 router.patch(
     "/:id/read",
     checkAuth(...allRoles),

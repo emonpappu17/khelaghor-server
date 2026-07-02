@@ -3,8 +3,18 @@ import { env } from "../config/env";
 
 export const sendEmail = async (to: string, html: string, subject: string) => {
     try {
+        // const transporter = nodemailer.createTransport({
+        //     service: "gmail",
+        //     auth: {
+        //         user: env.SMTP_USER,
+        //         pass: env.SMTP_PASS,
+        //     },
+        // });
+
         const transporter = nodemailer.createTransport({
-            service: "gmail",
+            host: env.SMTP_HOST,
+            port: Number(env.SMTP_PORT),
+            secure: true, // 465
             auth: {
                 user: env.SMTP_USER,
                 pass: env.SMTP_PASS,
@@ -18,7 +28,7 @@ export const sendEmail = async (to: string, html: string, subject: string) => {
             text: html.replace(/<[^>]+>/g, ""),
             html,
         };
-
+        console.log('check is log 2==>', to, html, subject);
         const info = await transporter.sendMail(mailOptions);
         // console.log(info);
         return info.messageId;

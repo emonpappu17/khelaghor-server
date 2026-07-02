@@ -1,3 +1,8 @@
+console.log('2nd');
+
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import { Server } from 'http';
 import app from "./app";
 import { env } from "./app/config/env";

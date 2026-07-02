@@ -12,11 +12,11 @@ model Field {
     images     String[]
 
     division  String
-    district  String
+    // district  String
     address   String
     area      String
-    latitude  Float
-    longitude Float
+    // latitude  Float
+    // longitude Float
 
     status FieldStatus @default(ACTIVE)
 
