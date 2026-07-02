@@ -1,5 +1,5 @@
 import { addMinutes } from "date-fns";
-import { BookingStatus, PaymentStatus, PaymentType, SlotStatus } from "../../../generated/prisma/enums";
+import { BookingStatus, PaymentStatus, PaymentType, SlotStatus, SportType } from "../../../generated/prisma/enums";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { CancelBookingInput, CreateBookingInput } from "./booking.validation";
@@ -8,6 +8,7 @@ import { PaymentService } from "../payment/payment.service";
 import { TPaginationOptions } from "../../types/pagination";
 import { calculatePagination } from "../../utils/calculatePagination";
 import { NotificationEmitter } from "../../lib/notificationEmitter";
+import { Prisma } from "../../../generated/prisma/client";
 
 const generateTransactionId = (bookingId: string): string => {
     const short = bookingId.split("-")[0];
@@ -27,6 +28,12 @@ const createBooking = async (userId: string, data: CreateBookingInput) => {
                     },
                 },
             });
+
+            // I can check here, is user booking their own field  usrId === hostId
+
+            if (userId === slot?.field?.hostId) {
+                throw new AppError("Can not book your own field", 404);
+            }
 
             if (!slot) {
                 throw new AppError("Slot not found", 404);
@@ -390,10 +397,364 @@ const getHostBookings = async (
 
     return { total, page, limit, bookings };
 };
+// const getAllBookings = async (
+//     filters: { status?: string },
+//     options: TPaginationOptions
+// ) => {
+//     const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
 
+//     const where: any = {
+//         slot: { fieldId: field.id },
+//     };
+
+//     if (filters.status) {
+//         const validStatuses = Object.values(BookingStatus);
+//         if (validStatuses.includes(filters.status as BookingStatus)) {
+//             where.bookingStatus = filters.status;
+//         }
+//     }
+
+//     const [total, bookings] = await prisma.$transaction([
+//         prisma.booking.count({ where }),
+//         prisma.booking.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { [sortBy]: sortOrder },
+//             include: {
+//                 slot: true,
+//                 user: {
+//                     select: {
+//                         id: true,
+//                         name: true,
+//                         email: true,
+//                         phone: true,
+//                         avatar: true,
+//                     },
+//                 },
+//                 payments: {
+//                     select: {
+//                         id: true,
+//                         amount: true,
+//                         status: true,
+//                         type: true,
+//                         paymentMethod: true,
+//                         paidAt: true,
+//                     },
+//                 },
+//             },
+//         }),
+//     ]);
+
+//     return { total, page, limit, bookings };
+// };
+
+
+// const getAllBookings = async (
+//     filters: { status?: string },
+//     options: TPaginationOptions
+// ) => {
+//     const { page, limit, skip, sortBy, sortOrder } =
+//         calculatePagination(options);
+
+//     const where: Prisma.BookingWhereInput = {};
+
+//     if (
+//         filters.status &&
+//         Object.values(BookingStatus).includes(filters.status as BookingStatus)
+//     ) {
+//         where.bookingStatus = filters.status as BookingStatus;
+//     }
+
+//     const [total, bookings] = await prisma.$transaction([
+//         prisma.booking.count({
+//             where,
+//         }),
+//         prisma.booking.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: {
+//                 [sortBy]: sortOrder,
+//             },
+//             include: {
+//                 slot: {
+//                     include: {
+//                         field: {
+//                             select: {
+//                                 id: true,
+//                                 name: true,
+//                                 sportType: true,
+//                                 area: true,
+//                                 address: true,
+//                                 images: true,
+//                                 host: true
+//                             },
+//                         },
+//                     },
+//                 },
+//                 user: {
+//                     select: {
+//                         id: true,
+//                         name: true,
+//                         email: true,
+//                         phone: true,
+//                         avatar: true,
+//                     },
+//                 },
+//                 payments: {
+//                     select: {
+//                         id: true,
+//                         amount: true,
+//                         status: true,
+//                         type: true,
+//                         paymentMethod: true,
+//                         paidAt: true,
+//                     },
+//                 },
+//             },
+//         }),
+//     ]);
+
+//     return {
+//         meta: {
+//             total,
+//             page,
+//             limit,
+//         },
+//         data: bookings,
+//     };
+// };
+
+const BOOKING_SEARCHABLE_FIELDS = ["user.name", "user.email", "user.phone"]; // for reference only, handled below manually
+
+const BOOKING_SORTABLE_FIELDS = [
+    "createdAt",
+    "updatedAt",
+    "totalAmount",
+    "paidAmount",
+    "dueAmount",
+    "expiresAt",
+    "bookingStatus",
+] as const;
+
+type TBookingFilters = {
+    searchTerm?: string;
+    status?: string;
+    paymentStatus?: string;
+    sportType?: string;
+    division?: string;
+    area?: string;
+    userId?: string;
+    hostId?: string;
+    fieldId?: string;
+    startDate?: string;
+    endDate?: string;
+    minAmount?: string;
+    maxAmount?: string;
+};
+
+const getAllBookings = async (
+    filters: TBookingFilters,
+    options: TPaginationOptions
+) => {
+    const { page, limit, skip, sortBy, sortOrder } =
+        calculatePagination(options);
+
+    const safeSortBy = BOOKING_SORTABLE_FIELDS.includes(sortBy as any)
+        ? sortBy
+        : "createdAt";
+
+    const {
+        searchTerm,
+        status,
+        paymentStatus,
+        sportType,
+        division,
+        area,
+        userId,
+        hostId,
+        fieldId,
+        startDate,
+        endDate,
+        minAmount,
+        maxAmount,
+    } = filters;
+
+    const andConditions: Prisma.BookingWhereInput[] = [];
+
+    if (status && Object.values(BookingStatus).includes(status as BookingStatus)) {
+        andConditions.push({ bookingStatus: status as BookingStatus });
+    }
+
+    if (userId) {
+        andConditions.push({ userId });
+    }
+
+    if (fieldId) {
+        andConditions.push({ slot: { fieldId } });
+    }
+
+    if (hostId) {
+        andConditions.push({ slot: { field: { hostId } } });
+    }
+
+    if (sportType && Object.values(SportType).includes(sportType as SportType)) {
+        andConditions.push({ slot: { field: { sportType: sportType as SportType } } });
+    }
+
+    if (division) {
+        andConditions.push({
+            slot: { field: { division: { equals: division, mode: "insensitive" } } },
+        });
+    }
+
+    if (area) {
+        andConditions.push({
+            slot: { field: { area: { contains: area, mode: "insensitive" } } },
+        });
+    }
+
+    if (paymentStatus) {
+        andConditions.push({
+            payments: { some: { status: paymentStatus as PaymentStatus } },
+        });
+    }
+
+    if (startDate || endDate) {
+        andConditions.push({
+            createdAt: {
+                ...(startDate && { gte: new Date(startDate) }),
+                ...(endDate && { lte: new Date(endDate) }),
+            },
+        });
+    }
+
+    if (minAmount || maxAmount) {
+        andConditions.push({
+            totalAmount: {
+                ...(minAmount && { gte: Number(minAmount) }),
+                ...(maxAmount && { lte: Number(maxAmount) }),
+            },
+        });
+    }
+
+    if (searchTerm) {
+        andConditions.push({
+            OR: [
+                { user: { name: { contains: searchTerm, mode: "insensitive" } } },
+                { user: { email: { contains: searchTerm, mode: "insensitive" } } },
+                { user: { phone: { contains: searchTerm, mode: "insensitive" } } },
+                { slot: { field: { name: { contains: searchTerm, mode: "insensitive" } } } },
+                { id: { contains: searchTerm, mode: "insensitive" } },
+            ],
+        });
+    }
+
+    const where: Prisma.BookingWhereInput =
+        andConditions.length > 0 ? { AND: andConditions } : {};
+
+    const [total, bookings, statusCounts] = await prisma.$transaction([
+        prisma.booking.count({ where }),
+        prisma.booking.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [safeSortBy]: sortOrder },
+            select: {
+                id: true,
+                totalAmount: true,
+                paidAmount: true,
+                dueAmount: true,
+                platformFee: true,
+                hostAmount: true,
+                bookingStatus: true,
+                cancelledAt: true,
+                cancellationReason: true,
+                expiresAt: true,
+                createdAt: true,
+                updatedAt: true,
+                slot: {
+                    select: {
+                        id: true,
+                        date: true,
+                        startTime: true,
+                        endTime: true,
+                        pricePerSlot: true,
+                        field: {
+                            select: {
+                                id: true,
+                                name: true,
+                                sportType: true,
+                                division: true,
+                                area: true,
+                                address: true,
+                                images: true,
+                                host: {
+                                    select: {
+                                        id: true,
+                                        businessName: true,
+                                        user: {
+                                            select: {
+                                                id: true,
+                                                name: true,
+                                                email: true,
+                                                phone: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        avatar: true,
+                    },
+                },
+                payments: {
+                    select: {
+                        id: true,
+                        amount: true,
+                        status: true,
+                        type: true,
+                        paymentMethod: true,
+                        paidAt: true,
+                    },
+                },
+            },
+        }),
+        prisma.booking.groupBy({
+            by: ["bookingStatus"],
+            _count: { _all: true },
+        }),
+    ]);
+
+    console.log(statusCounts);
+
+    return {
+        meta: {
+            total,
+            page,
+            limit,
+            totalPage: Math.ceil(total / limit),
+        },
+        statusSummary: statusCounts.reduce((acc, curr) => {
+            acc[curr.bookingStatus] = curr._count._all;
+            return acc;
+        }, {} as Record<string, number>),
+        data: bookings,
+    };
+};
 export const BookingService = {
     createBooking,
     cancelBooking,
     getMyBookings,
-    getHostBookings
+    getHostBookings,
+    getAllBookings
 };

@@ -70,6 +70,39 @@ const getHostBookings = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const getAllBookings = catchAsync(async (req: Request, res: Response) => {
+    // const filters = pick(req.query, ["status"]);
+    const filters = pick(req.query, [
+        "searchTerm",
+        "status",
+        "paymentStatus",
+        "sportType",
+        "division",
+        "area",
+        "userId",
+        "hostId",
+        "fieldId",
+        "startDate",
+        "endDate",
+        "minAmount",
+        "maxAmount",
+    ]);
+    const options = pick(req.query, ["page", "limit", "sortBy", "sortOrder"]);
+
+    const result = await BookingService.getAllBookings(filters, options);
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message:
+            result.data.length === 0
+                ? "No bookings found"
+                : "Bookings fetched successfully",
+        meta: result.meta,
+        data: result.data,
+    });
+});
+
 const cancelBooking = catchAsync(async (req: Request, res: Response) => {
     const userId = req.authUser.userId;
     const bookingId = req.params.bookingId as string;
@@ -90,5 +123,6 @@ export const BookingController = {
     createBooking,
     cancelBooking,
     getMyBookings,
-    getHostBookings
+    getHostBookings,
+    getAllBookings
 };

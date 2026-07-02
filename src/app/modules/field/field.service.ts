@@ -42,11 +42,11 @@ const createField = async (userId: string, data: CreateFieldInput, files?: Expre
       facilities: data.facilities ?? [],
       images: imageUrls.length > 0 ? imageUrls : [],
       division: data.division,
-      district: data.district,
+      // district: data.district,
       address: data.address,
       area: data.area,
-      latitude: data.latitude,
-      longitude: data.longitude,
+      // latitude: data.latitude,
+      // longitude: data.longitude,
       status: "ACTIVE",
     },
   });
@@ -120,32 +120,98 @@ const updateField = async (userId: string, fieldId: string, data: UpdateFieldInp
   return updated;
 };
 
+// const getFields = async (
+//   filters: {
+//     sportType?: string;
+//     division?: string;
+//     // district?: string;
+//     address?: string;
+//     area?: string;
+//     status?: string;
+//   },
+//   options: TPaginationOptions
+// ) => {
+//   // const page = Number(options.page ?? 1);
+//   // const limit = Number(options.limit ?? 20);
+//   // const skip = (page - 1) * limit;
+//   // const sortBy = options.sortBy ?? "createdAt";
+//   // const sortOrder = options.sortOrder === "asc" ? "asc" : "desc";
+
+//   const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
+
+
+//   const where: any = {};
+
+//   if (filters.sportType) where.sportType = filters.sportType;
+//   if (filters.division) where.division = filters.division;
+//   // if (filters.district) where.district = filters.district;
+//   if (filters.area) where.area = filters.area;
+//   if (filters.status) where.status = filters.status;
+
+//   const [total, fields] = await prisma.$transaction([
+//     prisma.field.count({ where }),
+//     prisma.field.findMany({
+//       where,
+//       skip,
+//       take: limit,
+//       orderBy: { [sortBy]: sortOrder },
+//       include: { slots: true },
+//     }),
+//   ]);
+
+//   return { total, page, limit, fields };
+// };
+
+// import { Prisma } from "@prisma/client";
+
 const getFields = async (
   filters: {
     sportType?: string;
     division?: string;
-    district?: string;
-    area?: string;
     status?: string;
+    searchTerm?: string;
   },
   options: TPaginationOptions
 ) => {
-  // const page = Number(options.page ?? 1);
-  // const limit = Number(options.limit ?? 20);
-  // const skip = (page - 1) * limit;
-  // const sortBy = options.sortBy ?? "createdAt";
-  // const sortOrder = options.sortOrder === "asc" ? "asc" : "desc";
-
-  const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
-
+  const { page, limit, skip, sortBy, sortOrder } =
+    calculatePagination(options);
 
   const where: any = {};
 
-  if (filters.sportType) where.sportType = filters.sportType;
-  if (filters.division) where.division = filters.division;
-  if (filters.district) where.district = filters.district;
-  if (filters.area) where.area = filters.area;
-  if (filters.status) where.status = filters.status;
+  if (filters.sportType) {
+    where.sportType = filters.sportType;
+  }
+
+  if (filters.division) {
+    where.division = filters.division;
+  }
+
+  if (filters.status) {
+    where.status = filters.status;
+  }
+
+  if (filters.searchTerm) {
+    where.OR = [
+      {
+        address: {
+          contains: filters.searchTerm,
+          mode: "insensitive",
+        },
+      },
+      {
+        area: {
+          contains: filters.searchTerm,
+          mode: "insensitive",
+        },
+      },
+      {
+        name: {
+          contains: filters.searchTerm,
+          mode: "insensitive",
+        },
+      },
+    ];
+  }
 
   const [total, fields] = await prisma.$transaction([
     prisma.field.count({ where }),
@@ -153,12 +219,46 @@ const getFields = async (
       where,
       skip,
       take: limit,
-      orderBy: { [sortBy]: sortOrder },
-      include: { slots: true },
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+      include: {
+        slots: true,
+      },
     }),
   ]);
 
-  return { total, page, limit, fields };
+  return {
+    total,
+    page,
+    limit,
+    fields,
+  };
+};
+
+const getMyField = async (userId: string) => {
+  const host = await getHostByUserId(userId);
+
+  const field = await prisma.field.findUnique({
+    where: {
+      hostId: host.id,
+    },
+    include: {
+      slots: true,
+      reviews: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return field;
 };
 
 const getFieldById = async (fieldId: string) => {
@@ -195,4 +295,5 @@ export const FieldService = {
   getFields,
   getFieldById,
   deleteField,
+  getMyField
 };

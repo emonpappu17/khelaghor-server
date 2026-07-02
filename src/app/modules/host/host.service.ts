@@ -111,6 +111,7 @@ const listHosts = async (
             name: true,
             email: true,
             role: true,
+            phone: true,
             status: true,
           },
         },

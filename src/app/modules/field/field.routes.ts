@@ -10,6 +10,11 @@ const router = Router();
 
 // Public field endpoints
 router.get("/", FieldController.listFields);
+router.get(
+  "/my",
+  checkAuth(UserRole.HOST),
+  FieldController.getMyField
+);
 router.get("/:id", FieldController.getField);
 
 // Host/admin endpoints
