@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env";
+import dns from "node:dns";
 
 export const sendEmail = async (to: string, html: string, subject: string) => {
     try {
@@ -20,6 +21,19 @@ export const sendEmail = async (to: string, html: string, subject: string) => {
             auth: {
                 user: env.SMTP_USER,
                 pass: env.SMTP_PASS,
+            },
+            getSocket: (options: any, callback: any) => {
+                dns.lookup(options.host, { family: 4 }, (err, address) => {
+                    if (err) return callback(err);
+
+                    const net = require("net");
+                    const socket = net.connect({
+                        host: address,
+                        port: options.port,
+                    });
+
+                    callback(null, socket);
+                });
             },
         });
 
