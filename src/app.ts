@@ -27,7 +27,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 
 app.use("/api/v1",
-  // apiLimiter,
+  apiLimiter,
   router);
 
 app.get("/", (req: Request, res: Response) => {
