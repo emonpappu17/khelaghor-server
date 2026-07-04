@@ -187,7 +187,7 @@ const googleCallback = catchAsync(async (req: Request, res: Response) => {
     });
 
     setAuthCookie(res, { accessToken, refreshToken })
-
+    console.log(`${env.CLIENT_URL}/${(user.role).toLowerCase()}`);
     res.redirect(`${env.CLIENT_URL}/${(user.role).toLowerCase()}`)
 });
 
