@@ -156,12 +156,56 @@ const logout = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-const googleCallback = catchAsync(async (req: Request, res: Response) => {
-    let redirectTo = req.query.state ? req.query.state as string : "";
+// const googleCallback = catchAsync(async (req: Request, res: Response) => {
+//     let redirectTo = req.query.state ? req.query.state as string : "";
 
-    if (redirectTo.startsWith("/")) {
-        redirectTo = redirectTo.slice(1);
-    }
+//     if (redirectTo.startsWith("/")) {
+//         redirectTo = redirectTo.slice(1);
+//     }
+
+//     if (!req.user) {
+//         return res.redirect(`${env.CLIENT_URL}/login?error=GoogleAuthFailed`);
+//     }
+
+//     const user = req.user as UserWithAuths;
+
+//     // Generate tokens
+//     const tokenPayload: TJwtPayload = {
+//         userId: user.id,
+//         email: user.email,
+//         role: user.role,
+//     };
+
+//     const accessToken = generateAccessToken(tokenPayload);
+//     const refreshToken = generateRefreshToken(tokenPayload);
+
+//     const refreshMaxAge = parseTimeToMs(env.JWT_REFRESH_EXPIRES_IN);
+
+//     // 🔄 Store refresh token for rotation
+//     await redisClient.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, {
+//         expiration: { type: "EX", value: refreshMaxAge },
+//     });
+
+//     setAuthCookie(res, { accessToken, refreshToken })
+//     console.log(`${env.CLIENT_URL}/${(user.role).toLowerCase()}`);
+//     res.redirect(`${env.CLIENT_URL}/${(user.role).toLowerCase()}`)
+
+//     // sendResponse(res, {
+//     //     statusCode: 200,
+//     //     success: true,
+//     //     message: 'Google login successful',
+//     //     data: { role: user.role }
+//     // });
+// });
+
+import crypto from "crypto";
+
+const GOOGLE_EXCHANGE_PREFIX = "google_exchange:";
+const GOOGLE_EXCHANGE_TTL = 60; // seconds, single-use
+
+const googleCallback = catchAsync(async (req: Request, res: Response) => {
+    let redirectTo = req.query.state ? (req.query.state as string) : "";
+    if (redirectTo.startsWith("/")) redirectTo = redirectTo.slice(1);
 
     if (!req.user) {
         return res.redirect(`${env.CLIENT_URL}/login?error=GoogleAuthFailed`);
@@ -169,7 +213,6 @@ const googleCallback = catchAsync(async (req: Request, res: Response) => {
 
     const user = req.user as UserWithAuths;
 
-    // Generate tokens
     const tokenPayload: TJwtPayload = {
         userId: user.id,
         email: user.email,
@@ -178,17 +221,67 @@ const googleCallback = catchAsync(async (req: Request, res: Response) => {
 
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
-
     const refreshMaxAge = parseTimeToMs(env.JWT_REFRESH_EXPIRES_IN);
 
-    // 🔄 Store refresh token for rotation
     await redisClient.set(`${REFRESH_PREFIX}${user.id}`, refreshToken, {
         expiration: { type: "EX", value: refreshMaxAge },
     });
 
-    setAuthCookie(res, { accessToken, refreshToken })
-    console.log(`${env.CLIENT_URL}/${(user.role).toLowerCase()}`);
-    res.redirect(`${env.CLIENT_URL}/${(user.role).toLowerCase()}`)
+    // 🔑 don't set cookies here — this response's origin is onrender.com, useless to Vercel
+    const exchangeCode = crypto.randomUUID();
+    await redisClient.set(
+        `${GOOGLE_EXCHANGE_PREFIX}${exchangeCode}`,
+        JSON.stringify({ accessToken, refreshToken, user }),
+        { expiration: { type: "EX", value: GOOGLE_EXCHANGE_TTL } }
+    );
+
+    const callbackUrl = new URL(`${env.CLIENT_URL}/auth/google/callback`);
+    callbackUrl.searchParams.set("code", exchangeCode);
+    if (redirectTo) callbackUrl.searchParams.set("redirectTo", `/${redirectTo}`);
+
+    res.redirect(callbackUrl.toString());
+});
+
+
+const googleExchange = catchAsync(async (req: Request, res: Response) => {
+    const { code } = req.body as { code?: string };
+
+    if (!code) {
+        return sendResponse(res, {
+            statusCode: 400,
+            success: false,
+            message: "Missing exchange code.",
+        });
+    }
+
+    const key = `${GOOGLE_EXCHANGE_PREFIX}${code}`;
+    const raw = await redisClient.get(key);
+
+    if (!raw) {
+        return sendResponse(res, {
+            statusCode: 400,
+            success: false,
+            message: "Invalid or expired Google sign-in. Please try again.",
+        });
+    }
+
+    await redisClient.del(key); // single-use, blocks replay
+
+    const { accessToken, refreshToken, user } = JSON.parse(raw) as {
+        accessToken: string;
+        refreshToken: string;
+        user: UserWithAuths;
+    };
+
+    // Same call as login — this Set-Cookie header is what forwardAuthCookies relays
+    setAuthCookie(res, { accessToken, refreshToken });
+
+    sendResponse(res, {
+        statusCode: 200,
+        success: true,
+        message: "Login successful",
+        data: { accessToken, user },
+    });
 });
 
 export const AuthController = {
@@ -202,5 +295,6 @@ export const AuthController = {
     googleCallback,
     getNewAccessToken,
     sendVerificationOtp,
-    verifyEmailOtp
+    verifyEmailOtp,
+    googleExchange
 };

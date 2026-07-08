@@ -18,6 +18,7 @@ export const setAuthCookie = (res: Response, tokenInfo: AuthTokens) => {
             sameSite: env.NODE_ENV === "production" ? "none" : "lax",
             maxAge: accessMaxAge,
             path: "/",
+            // domain: env.CLIENT_URL
         });
     }
 
@@ -28,6 +29,7 @@ export const setAuthCookie = (res: Response, tokenInfo: AuthTokens) => {
             sameSite: env.NODE_ENV === "production" ? "none" : "lax",
             maxAge: refreshMaxAge,
             path: "/",
+            // domain: env.CLIENT_URL
         });
     }
 };

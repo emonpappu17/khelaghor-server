@@ -83,5 +83,7 @@ router.get(
     AuthController.googleCallback
 );
 
+router.post('/google/exchange', AuthController.googleExchange)
+
 
 export const AuthRoutes = router;
