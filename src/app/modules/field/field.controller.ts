@@ -79,7 +79,7 @@ const listFields = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getMyField = catchAsync(async (req: Request, res: Response) => {
-  console.log('hit.....');
+  // console.log('hit.....');
   const userId = req.authUser.userId;
 
   const field = await FieldService.getMyField(userId);
