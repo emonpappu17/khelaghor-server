@@ -18,6 +18,7 @@ export const checkAuth =
 
                 const token = req?.headers.authorization || req?.cookies.accessToken;
                 // console.log('req?.headers.authorization==>', req?.headers.authorization);
+                // console.log('token==>', token);
                 if (!token) {
                     throw new AppError("Unauthorized access", 401);
                 }

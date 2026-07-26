@@ -15,7 +15,7 @@ export const uploadSingle = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, 
+        fileSize: 5 * 1024 * 1024,
     },
 
 }).single('file');
@@ -24,7 +24,8 @@ export const uploadMultiple = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, 
-        files: 10, 
+        fileSize: 5 * 1024 * 1024,
+        files: 5,
+        // files: 10, 
     },
 }).array('files', 10);

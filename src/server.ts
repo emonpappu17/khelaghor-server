@@ -6,9 +6,9 @@ dns.setDefaultResultOrder("ipv4first");
 import { Server } from 'http';
 import app from "./app";
 import { env } from "./app/config/env";
-import { seedSuperAdmin } from "./app/utils/seedAdmin";
-import { connectRedis } from './app/lib/redis';
 import { startCronJobs } from './app/cron';
+import { connectRedis } from './app/lib/redis';
+import { seedUsers } from "./app/utils/seedAdmin";
 
 let server: Server;
 
@@ -16,7 +16,8 @@ async function main() {
   try {
     // 1. Initial Logic (DB Seed, etc.)
     await connectRedis();
-    await seedSuperAdmin();
+    await seedUsers();
+    // await seedSuperAdmin();
 
     // 2. Start Listening
     server = app.listen(env.PORT, () => {
