@@ -1,10 +1,30 @@
+import { Prisma } from "../../../generated/prisma/client";
+import { UserRole, UserStatus } from "../../../generated/prisma/enums";
+import { deleteImage, extractPublicId, uploadSingleImage } from "../../config/cloudinary";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
-import { UserRole } from "../../../generated/prisma/enums";
-import type { UpdateProfileInput, UpdateRoleInput, UpdateStatusInput } from "./user.validation";
 import { TPaginationOptions } from "../../types/pagination";
 import { calculatePagination } from "../../utils/calculatePagination";
-import { deleteImage, extractPublicId, uploadSingleImage } from "../../config/cloudinary";
+import type { UpdateProfileInput, UpdateRoleInput, UpdateStatusInput } from "./user.validation";
+
+type TUserFilters = {
+    search?: string;
+    role?: string;
+    status?: string;
+    isVerified?: string;
+    isDeleted?: string;
+    isApproved?: string;
+};
+
+// Whitelist prevents orderBy injection
+const ALLOWED_SORT_FIELDS: (keyof Prisma.UserOrderByWithRelationInput)[] = [
+    "createdAt",
+    "updatedAt",
+    "name",
+    "email",
+    "role",
+    "status",
+];
 
 const getProfile = async (userId: string) => {
     const user = await prisma.user.findUnique({
@@ -109,21 +129,106 @@ const deleteAccount = async (userId: string) => {
     return { message: "Account deleted successfully" };
 };
 
-const getUsers = async (
-    filters: { role?: string; status?: string },
-    options: TPaginationOptions
-) => {
+// const getUsers = async (
+//     filters: { role?: string; status?: string },
+//     options: TPaginationOptions
+// ) => {
+//     const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
+
+//     const where: any = { isDeleted: false };
+
+//     if (filters.role) {
+//         where.role = filters.role;
+//     }
+
+//     if (filters.status) {
+//         where.status = filters.status;
+//     }
+
+//     const [total, users] = await prisma.$transaction([
+//         prisma.user.count({ where }),
+//         prisma.user.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { [sortBy]: sortOrder },
+//             select: {
+//                 id: true,
+//                 name: true,
+//                 email: true,
+//                 phone: true,
+//                 avatar: true,
+//                 role: true,
+//                 status: true,
+//                 isVerified: true,
+//                 createdAt: true,
+//             },
+//         }),
+//     ]);
+
+//     return { users, total, page, limit };
+// };
+
+
+const getUsers = async (filters: TUserFilters, options: TPaginationOptions) => {
     const { page, limit, skip, sortBy, sortOrder } = calculatePagination(options);
 
-    const where: any = { isDeleted: false };
+    // Guard against arbitrary field injection
+    const safeSortBy = ALLOWED_SORT_FIELDS.includes(
+        sortBy as keyof Prisma.UserOrderByWithRelationInput
+    )
+        ? sortBy
+        : "createdAt";
 
+    // ── Build WHERE ────────────────────────────────────────────────────────────
+
+    const where: Prisma.UserWhereInput = {
+        // Admins see active records by default.
+        // Pass isDeleted=true explicitly to inspect soft-deleted users.
+        isDeleted: filters.isDeleted === "true" ? true : false,
+    };
+
+    // Role — validate against enum to avoid bad DB queries
     if (filters.role) {
-        where.role = filters.role;
+        if (!Object.values(UserRole).includes(filters.role as UserRole)) {
+            throw new AppError(`Invalid role: ${filters.role}`, 404);
+        }
+        where.role = filters.role as UserRole;
     }
 
+    // Status — same enum guard
     if (filters.status) {
-        where.status = filters.status;
+        if (!Object.values(UserStatus).includes(filters.status as UserStatus)) {
+            throw new AppError(`Invalid status: ${filters.status}`, 404);
+        }
+        where.status = filters.status as UserStatus;
     }
+
+    // isVerified — string "true"/"false" → boolean
+    if (filters.isVerified !== undefined) {
+        where.isVerified = filters.isVerified === "true";
+    }
+
+    // Full-text search across name, email, phone
+    // phone can be null in DB — Prisma handles null columns safely with contains
+    if (filters.search?.trim()) {
+        where.OR = [
+            { name: { contains: filters.search.trim(), mode: "insensitive" } },
+            { email: { contains: filters.search.trim(), mode: "insensitive" } },
+            { phone: { contains: filters.search.trim(), mode: "insensitive" } },
+        ];
+    }
+
+    // isApproved — only meaningful for HOST users, but doesn't break other roles
+    // (non-HOST users have no hostProfile row → the filter simply returns no match
+    //  when isApproved=true, which is correct behaviour)
+    if (filters.isApproved !== undefined) {
+        where.hostProfile = {
+            isApproved: filters.isApproved === "true",
+        };
+    }
+
+    // ── Query ─────────────────────────────────────────────────────────────────
 
     const [total, users] = await prisma.$transaction([
         prisma.user.count({ where }),
@@ -131,7 +236,7 @@ const getUsers = async (
             where,
             skip,
             take: limit,
-            orderBy: { [sortBy]: sortOrder },
+            orderBy: { [safeSortBy]: sortOrder },
             select: {
                 id: true,
                 name: true,
@@ -141,7 +246,19 @@ const getUsers = async (
                 role: true,
                 status: true,
                 isVerified: true,
+                isDeleted: true,  // expose so admin UI can flag deleted rows
                 createdAt: true,
+                updatedAt: true,
+                // Inline host summary — no extra round-trip needed on the admin table
+                hostProfile: {
+                    select: {
+                        id: true,
+                        businessName: true,
+                        nidNumber: true,
+                        isApproved: true,
+                        approvedAt: true,
+                    },
+                },
             },
         }),
     ]);

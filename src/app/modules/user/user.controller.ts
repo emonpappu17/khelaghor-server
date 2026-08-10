@@ -44,18 +44,40 @@ const deleteMe = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+// const listUsers = catchAsync(async (req: Request, res: Response) => {
+//     const filters = pick(req.query, ["role", "status"]);
+//     const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+
+//     const { users, total, page, limit } = await UserService.getUsers(filters, options);
+
+//     sendResponse(res, {
+//         statusCode: 200,
+//         success: true,
+//         message: "Users fetched successfully",
+//         meta: { page, limit, total },
+//         data: users,
+//     });
+// });
+
 const listUsers = catchAsync(async (req: Request, res: Response) => {
-    const filters = pick(req.query, ["role", "status"]);
+    const filters = pick(req.query, [
+        "search",       // searches name + email + phone
+        "role",         // UserRole enum
+        "status",       // UserStatus enum
+        "isVerified",   // "true" | "false"
+        "isDeleted",    // "true" | "false"  — default false; pass "true" to see soft-deleted
+        "isApproved",   // "true" | "false"  — filters on hostProfile.isApproved (HOST users)
+    ]);
     const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
-    const { users, total, page, limit } = await UserService.getUsers(filters, options);
+    const result = await UserService.getUsers(filters, options);
 
     sendResponse(res, {
         statusCode: 200,
         success: true,
         message: "Users fetched successfully",
-        meta: { page, limit, total },
-        data: users,
+        meta: { page: result.page, limit: result.limit, total: result.total },
+        data: result.users,
     });
 });
 
